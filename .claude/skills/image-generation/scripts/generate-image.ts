@@ -85,9 +85,6 @@ const { values } = parseArgs({
 function die(msg: string, code = 1): never {
   console.error(`[generate-image] ${msg}`);
   process.exit(code);
-  // process.exit terminates the process; the throw is unreachable at runtime
-  // but keeps TS's `never` inference happy when @types/node isn't installed.
-  throw new Error(msg);
 }
 
 // --- 1. 校验环境 ---

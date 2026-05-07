@@ -1,0 +1,18 @@
+{
+  "name": "picture-book",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AI-powered children's picture book creator (Claude Code skills)",
+  "scripts": {
+    "image": "bun run .claude/skills/image-generation/scripts/generate-image.ts",
+    "epub": "bun run .claude/skills/picture-book-creator/scripts/generate-epub.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/jszip": "^3.4.1"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1"
+  }
+}
