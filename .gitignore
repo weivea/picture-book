@@ -42,3 +42,4 @@ generated/
 *.epub
 *.mobi
 *.pdf
+.env
