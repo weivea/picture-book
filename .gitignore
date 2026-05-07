@@ -36,6 +36,13 @@ pnpm-debug.log*
 .claude/worktrees/
 .claude/scheduled_tasks.json
 
+# Codex Desktop App (本地配置/缓存，但保留项目级 skills)
+.codex/settings.local.json
+.codex/cache/
+.codex/logs/
+.codex/tasks/
+.codex/worktrees/
+
 # 绘本生成产物（图片/电子书等大文件，按需放行）
 output/
 generated/

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Picture Book Creator"
+  short_description: "Create guided children picture books"
+  default_prompt: "Use $picture-book-creator to create a children picture book from an idea."
