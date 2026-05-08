@@ -20,7 +20,7 @@ description: |
 ## When NOT to Use
 
 - **图像编辑 / inpainting**：`/openai/.../images/edits` 接口本 skill 未实现
-- **批量并发**：本 skill 单次只生成一张图。并发由调用方控制（picture-book-creator 限 4 并发）
+- **批量并发**：本 skill 单次只生成一张图。并发由调用方控制（picture-book-creator 限 2 并发）
 - **失败自动重试**：本 skill 失败即 `exit 1`。调用方决定是否重试
 
 ## Prerequisites

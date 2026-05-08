@@ -230,17 +230,17 @@ output/<topic>/prompts/N.txt
 bun run images -- \
   --prompts output/<topic>/prompts \
   --output output/<topic> \
-  --concurrency 4
+  --concurrency 2
 ```
 
 脚本会读取 `prompts/<page_number>.txt`，输出 `output/<topic>/<page_number>.png`，其中 `<page_number>` 从 0（封面）开始编号。
 
 可选参数：
-- `--concurrency`：默认 4，范围 1-8
+- `--concurrency`：默认 2，范围 1-2
 - `--quality`：传给 image-generation，默认 `high`
 - `--min-kb`：输出文件最小体积校验阈值，默认 100
 
-**并发限制：** 默认最多同时执行 **4 个**生成任务，避免 API 频率限制。遇到 429 时，将 `--concurrency` 降到 1-2 后重试失败页。
+**并发限制：** 默认最多同时执行 **2 个**生成任务，且不要把 `--concurrency` 设置为大于 2。遇到 429 时，将 `--concurrency` 降到 1 后重试失败页。
 
 **单页重试：** 修改对应 `prompts/<page>.txt` 后，可以直接运行：
 

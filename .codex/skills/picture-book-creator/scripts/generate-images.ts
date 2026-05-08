@@ -5,7 +5,7 @@
  * 用于 Codex Desktop App 的并发生图调度。
  *
  * 用法：
- *   bun run images -- --prompts output/<topic>/prompts --output output/<topic> --concurrency 4
+ *   bun run images -- --prompts output/<topic>/prompts --output output/<topic> --concurrency 2
  */
 
 import { parseArgs } from "util";
@@ -34,7 +34,7 @@ const { values } = parseArgs({
   options: {
     prompts: { type: "string" },
     output: { type: "string" },
-    concurrency: { type: "string", default: "4" },
+    concurrency: { type: "string", default: "2" },
     quality: { type: "string", default: "high" },
     "min-kb": { type: "string", default: "100" },
   },
@@ -50,8 +50,8 @@ if (!values.prompts) die("缺少必填参数 --prompts <prompt 目录>");
 if (!values.output) die("缺少必填参数 --output <图片输出目录>");
 
 const concurrency = Number.parseInt(values.concurrency!, 10);
-if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 8) {
-  die(`--concurrency 必须是 1-8 的整数，收到 "${values.concurrency}"`);
+if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 2) {
+  die(`--concurrency 必须是 1-2 的整数，收到 "${values.concurrency}"`);
 }
 
 const minKb = Number.parseInt(values["min-kb"]!, 10);

@@ -6,7 +6,7 @@ AI 驱动的儿童绘本创作工具。基于 Codex Desktop App skills，把一�
 
 - **全流程引导**：从需求收集 → 分页脚本 → 角色与风格设定 → 图像 prompt → 批量生图 → 电子书打包，全部由 Codex skill 串起来
 - **图像生成**：Azure 部署的 `gpt-image-2`，1024×1024 PNG，文字直接渲染在画面中
-- **并行高效**：每页一张图，批量脚本最多 4 并发生成
+- **并行高效**：每页一张图，批量脚本最多 2 并发生成
 - **可出版输出**：正方形 210×210mm 国际主流绘本开本，导出 Fixed-Layout EPUB
 
 ## 项目结构
@@ -69,7 +69,7 @@ cp .env.example .env
 bun run image -- --prompt "..." --output path/to/file.png
 
 # 批量生图：读取 output/<book-slug>/prompts/0.txt ~ N.txt
-bun run images -- --prompts output/<book-slug>/prompts --output output/<book-slug>
+bun run images -- --prompts output/<book-slug>/prompts --output output/<book-slug> --concurrency 2
 
 # 把一个目录下的页面图打包成 EPUB
 bun run epub -- --input output/<book-slug> --title "<书名标题>"
