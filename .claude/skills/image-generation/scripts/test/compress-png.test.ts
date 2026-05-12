@@ -49,3 +49,23 @@ describe("compressPngInPlace - happy path", () => {
     expect(s.size).toBe(result.finalBytes);
   });
 });
+
+describe("compressPngInPlace - SKIP_PNG_COMPRESS", () => {
+  test("env=1 时直接落盘原图，mode=skipped", async () => {
+    const dir = await freshTmp();
+    const out = join(dir, "out.png");
+    const prev = process.env.SKIP_PNG_COMPRESS;
+    process.env.SKIP_PNG_COMPRESS = "1";
+    try {
+      const result = await compressPngInPlace(raw, out);
+      expect(result.mode).toBe("skipped");
+      expect(result.finalBytes).toBe(raw.length);
+
+      const written = await readFile(out);
+      expect(written.equals(raw)).toBe(true);
+    } finally {
+      if (prev === undefined) delete process.env.SKIP_PNG_COMPRESS;
+      else process.env.SKIP_PNG_COMPRESS = prev;
+    }
+  });
+});
