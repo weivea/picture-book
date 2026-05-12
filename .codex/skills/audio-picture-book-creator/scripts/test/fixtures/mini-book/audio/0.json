@@ -1,0 +1,28 @@
+{
+  "voice": "zh-CN-XiaoyiNeural",
+  "rate": "-10%",
+  "volume": "+0%",
+  "pitch": "+0Hz",
+  "duration_ms": 1064,
+  "text": "迷你测试\n",
+  "sentences": [
+    {
+      "text": "迷你测试",
+      "start_ms": 106,
+      "end_ms": 1064
+    }
+  ],
+  "words": [
+    {
+      "text": "迷你",
+      "start_ms": 106,
+      "end_ms": 481
+    },
+    {
+      "text": "测试",
+      "start_ms": 494,
+      "end_ms": 1064
+    }
+  ],
+  "timestamps_adjusted": false
+}

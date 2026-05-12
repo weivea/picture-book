@@ -1,0 +1,4 @@
+interface:
+  display_name: "Text To Speech"
+  short_description: "Generate MP3 narration with timestamps"
+  default_prompt: "Use $text-to-speech to synthesize text as an MP3 with timestamps."

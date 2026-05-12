@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audio Picture Book Creator"
+  short_description: "Create narrated EPUB3 picture books"
+  default_prompt: "Use $audio-picture-book-creator to add narration to an existing picture book."
