@@ -6,7 +6,10 @@
   "description": "AI-powered children's picture book creator (Claude Code skills)",
   "scripts": {
     "image": "bun run .claude/skills/image-generation/scripts/generate-image.ts",
-    "epub": "bun run .claude/skills/picture-book-creator/scripts/generate-epub.ts"
+    "epub": "bun run .claude/skills/picture-book-creator/scripts/generate-epub.ts",
+    "audio": "bun run .claude/skills/text-to-speech/scripts/generate-audio.ts",
+    "audio-epub": "bun run .claude/skills/audio-picture-book-creator/scripts/generate-audio-epub.ts",
+    "test": "bun test ./.claude/skills/"
   },
   "devDependencies": {
     "@types/bun": "latest",
