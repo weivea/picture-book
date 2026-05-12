@@ -6,6 +6,7 @@ import JSZip from "jszip";
 
 const fixtureDir = join(import.meta.dir, "fixtures/mini-book");
 const epubPath = join(fixtureDir, "迷你测试-audio.epub");
+const scriptPath = join(import.meta.dir, "../generate-audio-epub.ts");
 
 describe("integration: generate-audio-epub", () => {
   beforeAll(() => {
@@ -21,7 +22,7 @@ describe("integration: generate-audio-epub", () => {
       "bun",
       [
         "run",
-        ".claude/skills/audio-picture-book-creator/scripts/generate-audio-epub.ts",
+        scriptPath,
         "--topic-dir",
         fixtureDir,
         "--title",
@@ -36,6 +37,11 @@ describe("integration: generate-audio-epub", () => {
       { encoding: "utf-8" }
     );
 
+    if (result.status !== 0) {
+      console.error("generate-audio-epub.ts failed:");
+      console.error("STDOUT:", result.stdout);
+      console.error("STDERR:", result.stderr);
+    }
     expect(result.status).toBe(0);
     expect(existsSync(epubPath)).toBe(true);
     expect(statSync(epubPath).size).toBeGreaterThan(10000);
