@@ -24,9 +24,10 @@
  */
 
 import { parseArgs } from "util";
-import { writeFile, mkdir, readFile } from "fs/promises";
+import { mkdir, readFile } from "fs/promises";
 import { existsSync } from "fs";
 import { dirname, resolve, join } from "path";
+import { compressPngInPlace, type CompressResult } from "./compress-png";
 
 const DEFAULT_ENDPOINT =
   "https://<your-resource-name>.cognitiveservices.azure.com/openai/deployments/gpt-image-2/images/generations?api-version=2024-02-01";
@@ -193,14 +194,34 @@ if (!b64) {
   );
 }
 
-// --- 6. 解码并落盘 ---
+// --- 6. 解码并压缩落盘 ---
 const buffer = Buffer.from(b64, "base64");
+let result: CompressResult;
 try {
-  await writeFile(outputPath, buffer);
+  result = await compressPngInPlace(buffer, outputPath);
 } catch (err) {
   die(`写入文件失败 (${outputPath})：${(err as Error).message}`);
 }
 
+if (result.mode === "fallback") {
+  console.error(
+    `[generate-image] WARN: 压缩失败 (${result.fallbackReason ?? "unknown"})，已落盘原始 PNG`,
+  );
+}
+
+const finalKB = (result.finalBytes / 1024).toFixed(1);
+const origKB = (result.origBytes / 1024).toFixed(1);
+const ratioPct = Math.round((result.finalBytes / result.origBytes) * 100);
+
+let suffix: string;
+if (result.mode === "compressed") {
+  suffix = `compressed from ${origKB} KB / ${ratioPct}%`;
+} else if (result.mode === "skipped") {
+  suffix = `uncompressed, SKIP_PNG_COMPRESS=1`;
+} else {
+  suffix = `uncompressed`;
+}
+
 console.log(
-  `OK ${outputPath} (${(buffer.length / 1024).toFixed(1)} KB, ${apiSize}, quality=${values.quality})`
+  `OK ${outputPath} (${finalKB} KB, ${apiSize}, quality=${values.quality}, ${suffix})`,
 );
