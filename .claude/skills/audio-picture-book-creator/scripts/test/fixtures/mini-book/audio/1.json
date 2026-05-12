@@ -1,0 +1,33 @@
+{
+  "voice": "zh-CN-XiaoyiNeural",
+  "rate": "-10%",
+  "volume": "+0%",
+  "pitch": "+0Hz",
+  "duration_ms": 1708,
+  "text": "你好。再见。\n",
+  "sentences": [
+    {
+      "text": "你好。",
+      "start_ms": 106,
+      "end_ms": 564
+    },
+    {
+      "text": "再见。",
+      "start_ms": 1194,
+      "end_ms": 1708
+    }
+  ],
+  "words": [
+    {
+      "text": "你好",
+      "start_ms": 106,
+      "end_ms": 564
+    },
+    {
+      "text": "再见",
+      "start_ms": 1194,
+      "end_ms": 1708
+    }
+  ],
+  "timestamps_adjusted": false
+}
