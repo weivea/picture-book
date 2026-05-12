@@ -5,6 +5,8 @@
   "type": "module",
   "description": "AI-powered children's picture book creator (Claude Code skills)",
   "scripts": {
+    "setup": "bun install && bun run setup:venv",
+    "setup:venv": "python3 -m venv .venv && .venv/bin/pip install --upgrade pip && .venv/bin/pip install -r requirements.txt",
     "image": "bun run .claude/skills/image-generation/scripts/generate-image.ts",
     "epub": "bun run .claude/skills/picture-book-creator/scripts/generate-epub.ts",
     "audio": "bun run .claude/skills/text-to-speech/scripts/generate-audio.ts",
