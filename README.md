@@ -75,6 +75,7 @@ bun run epub -- --dir output/<book-slug>
 - `0.png` ~ `11.png`：封面 + 11 页正文
 - `script.md`、`characters.md`、`style.md`：分页脚本、角色设定、风格设定
 - `周五的胡萝卜蛋糕.epub` / `.pdf`：成品电子书
+- `周五的胡萝卜蛋糕-audio.epub`：有声版（晰晰童声朗读 + 句级高亮 + 自动翻页，需 Apple Books / Thorium）
 
 ## 相关文档
 
