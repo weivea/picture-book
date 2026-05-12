@@ -81,3 +81,26 @@ bun run epub -- --dir output/<book-slug>
 - `azure-image-2-api.md` — Azure gpt-image-2 接口与鉴权说明
 - `.claude/skills/picture-book-creator/SKILL.md` — 绘本生成完整流程与阶段说明
 - `.claude/skills/image-generation/SKILL.md` — 单张图生成 skill 的契约
+
+## 有声绘本（实验功能）
+
+把已生成的静态绘本升级为带朗读、文字高亮、自动翻页的 EPUB3 电子书。
+
+### 一次性 setup
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install edge-tts
+# 可选：装 epubcheck 做结构校验
+brew install epubcheck
+```
+
+### 使用
+
+在 Claude Code 中直接说："给 zhouwu-yuehao 做有声版"，audio-picture-book-creator skill 会自动触发。
+
+### 阅读器建议
+
+- ✅ Apple Books（iOS / macOS）：完整支持朗读 + 高亮 + 翻页
+- ✅ Thorium Reader（跨平台）：完整支持
+- ⚠️ Kindle / 微信读书：不支持 Media Overlays，仅作为静态 EPUB 显示

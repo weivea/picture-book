@@ -43,3 +43,6 @@ generated/
 *.mobi
 *.pdf
 .env
+
+# Python
+.venv/
