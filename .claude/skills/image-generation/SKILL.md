@@ -10,7 +10,9 @@ description: |
 
 # Image Generation
 
-通过 Azure 部署的 `gpt-image-2` 模型，把一段 prompt 渲染成单张 1024×1024 PNG。
+通过 Azure 部署的 `gpt-image-2` 模型，把一段 prompt 渲染成单张 1024×1024 PNG，
+落盘前会经过 `pngquant + oxipng` 高保真压缩，目标单图 ≤800 KB（典型 400-700 KB），
+肉眼无差别。压缩失败时静默回退到原图（exit 0，stderr 一行 WARN）。
 
 ## When to Use
 
@@ -38,6 +40,9 @@ description: |
 **推荐做法**：复制项目根目录的 `.env.example` 为 `.env`，填入真实 key。
 `.env` 已被 `.gitignore` 屏蔽，不会泄漏。
 
+> 此 skill 依赖两个 npm 包提供的预编译二进制（`pngquant-bin`、`oxipng-bin`）。
+> 首次使用前在仓库根目录执行 `bun install` 即可。
+
 > ⚠️ skill 内置的 `.env` 解析器只支持最常见的 `KEY=value` 格式（含 `#` 注释、两侧引号），
 > 不支持多行值、变量插值或转义符。需要这些功能请改用 `dotenv` 包。
 
@@ -51,6 +56,12 @@ bun run .claude/skills/image-generation/scripts/generate-image.ts \
   [--size 1024x1024]    # MVP 内部固定 1024x1024，传其他值会 stderr 警告但继续
   [--quality high]      # low | medium | high，默认 high
 ```
+
+**环境变量（除 `AZURE_API_KEY` / `AZURE_IMAGE_ENDPOINT` 外）：**
+
+| 变量 | 含义 |
+|---|---|
+| `SKIP_PNG_COMPRESS=1` | 跳过 pngquant + oxipng 压缩，直接落盘原图。调试 / 对照用。 |
 
 退出码语义：
 
@@ -105,6 +116,7 @@ picture-book-creator 阶段 6.2 以 `context: fork` 形式派发本 skill，
 | `API 返回 4xx` (非 429) | prompt 被审核拒绝 / 参数非法 | 调整 prompt 后重试，否则跳过本页 |
 | `网络错误` | DNS / 连接超时 | 重试 |
 | `Prompt 为空` | 调用方没传 prompt | 修复调用代码，不要重试 |
+| `WARN: 压缩失败` | pngquant/oxipng 子进程失败或超时 | 不是错误，exit 0；该图未压缩但可用，可忽略 |
 
 ## Common Mistakes
 
@@ -117,6 +129,6 @@ picture-book-creator 阶段 6.2 以 `context: fork` 形式派发本 skill，
 
 ## Implementation
 
-脚本：`scripts/generate-image.ts`（Bun + TypeScript，无外部依赖，使用 Bun 内置 `fetch`）
+脚本：`scripts/generate-image.ts`（Bun + TypeScript，使用 Bun 内置 `fetch`），调用 `compress-png.ts`（依赖 `pngquant-bin` + `oxipng-bin`）做高保真压缩。
 
 API 细节固化在脚本里，详见 `scripts/generate-image.ts` 头部注释。
