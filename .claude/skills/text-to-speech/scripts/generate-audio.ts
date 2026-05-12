@@ -161,6 +161,8 @@ const words: Word[] = events
   }));
 
 // 10. 估算 mp3 实际 duration（用 last word 的 end_ms 作为近似；准确值可后续用 ffprobe）
+// NOTE: 因为 durationMs 与 words[last].end_ms 同源，sanityCheck 当前不会触发裁剪
+// （ratio 恒为 1.0）。等接入 ffprobe 拿到真实 mp3 duration 后才有意义。
 const lastWordEnd = words.length > 0 ? words[words.length - 1]!.end_ms : 0;
 const durationMs = lastWordEnd > 0 ? lastWordEnd : 0;
 

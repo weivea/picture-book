@@ -16,7 +16,18 @@ import json
 import sys
 import argparse
 
-import edge_tts
+try:
+    import edge_tts
+except ModuleNotFoundError:
+    import json as _json
+    print(
+        _json.dumps({
+            "type": "error",
+            "message": "edge-tts 未安装。请在项目根运行：python3 -m venv .venv && .venv/bin/pip install edge-tts",
+        }),
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 async def synth(text: str, voice: str, rate: str, volume: str, pitch: str) -> int:

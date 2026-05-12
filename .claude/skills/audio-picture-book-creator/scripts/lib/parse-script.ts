@@ -1,5 +1,11 @@
 import { readFile } from "fs/promises";
 
+/**
+ * NOTE: 这个函数由 audio-picture-book-creator skill 在 Phase A（编排阶段）调用，
+ * 用于把 script.md 解析成逐页 manifest，再循环派发 generate-audio.ts。
+ * generate-audio-epub.ts 并不直接调用本文件——打包阶段读的是已生成的 audio/{N}.mp3 + {N}.json。
+ */
+
 export interface PageText {
   pageNum: number;
   text: string;

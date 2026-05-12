@@ -73,6 +73,8 @@ bun run .claude/skills/text-to-speech/scripts/generate-audio.ts \
 }
 ```
 
+> 注：当前 `duration_ms` 取自最后一个 WordBoundary 的 `end_ms`，与 sanityCheck 输入同源，因此 `timestamps_adjusted` 在生产中始终为 `false`。后续若引入 ffprobe 获取真实 mp3 时长，sanityCheck 才会真正生效。
+
 ## Behavior on Error
 
 | stderr 关键字 | 触发条件 | 调用方处置建议 |
