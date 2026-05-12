@@ -1,4 +1,4 @@
 interface:
   display_name: "Azure Image Generation"
-  short_description: "Generate one PNG with Azure images"
+  short_description: "Generate compressed Azure PNG images"
   default_prompt: "Use $image-generation to render this prompt as a PNG."
