@@ -16,6 +16,12 @@
     "@types/jszip": "^3.4.1"
   },
   "dependencies": {
-    "jszip": "^3.10.1"
-  }
+    "jszip": "^3.10.1",
+    "oxipng-bin": "^1.0.0",
+    "pngquant-bin": "^9.0.0"
+  },
+  "trustedDependencies": [
+    "pngquant-bin",
+    "oxipng-bin"
+  ]
 }
