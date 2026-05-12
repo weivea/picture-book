@@ -9,6 +9,8 @@ export interface Sentence {
 export interface BuildSmilInput {
   pageNum: number;
   sentences: Sentence[];
+  durationMs?: number;
+  trailingPauseMs?: number;
 }
 
 /**
@@ -17,15 +19,22 @@ export interface BuildSmilInput {
  * 引用约定：xhtml 在 ../page-N.xhtml，audio 在 ../audio/N.mp3
  */
 export function buildSmil(input: BuildSmilInput): string {
-  const { pageNum, sentences } = input;
+  const { pageNum, sentences, durationMs = 0, trailingPauseMs = 0 } = input;
   const pars = sentences
     .map((_, i) => {
       const sIdx = i + 1;
+      const sentence = sentences[i]!;
+      const isLastSentence = i === sentences.length - 1;
+      const endMs =
+        isLastSentence && trailingPauseMs > 0
+          ? Math.max(sentence.end_ms, durationMs) + trailingPauseMs
+          : sentence.end_ms;
+
       return `      <par id="par${pageNum}-${sIdx}">
         <text src="../page-${pageNum}.xhtml#p${pageNum}-s${sIdx}"/>
         <audio src="../audio/${pageNum}.mp3" clipBegin="${msToClipMs(
-        sentences[i]!.start_ms
-      )}" clipEnd="${msToClipMs(sentences[i]!.end_ms)}"/>
+        sentence.start_ms
+      )}" clipEnd="${msToClipMs(endMs)}"/>
       </par>`;
     })
     .join("\n");

@@ -71,6 +71,8 @@ bun run .codex/skills/audio-picture-book-creator/scripts/generate-audio-epub.ts 
   --voice zh-CN-XiaoyiNeural
 ```
 
+默认会在连续朗读的有声页之间加入 2 秒静音停顿；如需调整，可在打包时追加 `--page-gap-ms <毫秒>`，传 `--page-gap-ms 0` 可关闭停顿。
+
 输出：`output/<topic>/<书名>-audio.epub`（与原 `<书名>.epub` 同级并存）
 
 ## 阶段间流转

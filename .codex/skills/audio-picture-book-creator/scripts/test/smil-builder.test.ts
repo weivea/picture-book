@@ -35,6 +35,21 @@ describe("buildSmil", () => {
     expect(smil).toContain('id="par0-1"');
   });
 
+  test("页尾停顿会延长最后一句 clipEnd", () => {
+    const smil = buildSmil({
+      pageNum: 1,
+      durationMs: 2500,
+      trailingPauseMs: 2000,
+      sentences: [
+        { text: "啊。", start_ms: 0, end_ms: 1000 },
+        { text: "哈。", start_ms: 1000, end_ms: 2000 },
+      ],
+    });
+
+    expect(smil).toContain('clipEnd="1000ms"');
+    expect(smil).toContain('clipEnd="4500ms"');
+  });
+
   test("空 sentences 生成空 seq", () => {
     const smil = buildSmil({ pageNum: 1, sentences: [] });
     expect(smil).toContain("<seq");

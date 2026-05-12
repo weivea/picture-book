@@ -8,12 +8,13 @@
  *     --author "<作者>" \
  *     --lang zh \
  *     --voice zh-CN-XiaoyiNeural \
+ *     [--page-gap-ms 2000]  # 连续朗读时，有声页之间的静音停顿
  *     [--output <epub 路径>]   # 默认 <topic-dir>/<title>-audio.epub
  *
  * 前提：<topic-dir>/audio/ 下已有 0.mp3 ~ N.mp3 + 同名 .json（由 text-to-speech 产出）
  */
 import { parseArgs } from "util";
-import { resolve, join, basename } from "path";
+import { resolve, join } from "path";
 import { readdir, readFile, writeFile } from "fs/promises";
 import { existsSync } from "fs";
 import JSZip from "jszip";
@@ -21,6 +22,7 @@ import { spawnSync } from "child_process";
 import { buildPageXhtml } from "./lib/xhtml-builder";
 import { buildSmil } from "./lib/smil-builder";
 import { buildOpf, type PageMeta } from "./lib/opf-builder";
+import { buildSilentMp3 } from "./lib/silent-mp3";
 
 const { values } = parseArgs({
   args: process.argv.slice(2),
@@ -33,12 +35,13 @@ const { values } = parseArgs({
     output: { type: "string" },
     width: { type: "string", default: "2048" },
     height: { type: "string", default: "2048" },
+    "page-gap-ms": { type: "string", default: "2000" },
   },
 });
 
 if (!values["topic-dir"] || !values.title) {
   console.error(
-    "Usage: --topic-dir <dir> --title <title> [--author <author>] [--lang <lang>] [--voice <voice>] [--output <path>]"
+    "Usage: --topic-dir <dir> --title <title> [--author <author>] [--lang <lang>] [--voice <voice>] [--page-gap-ms <ms>] [--output <path>]"
   );
   process.exit(1);
 }
@@ -49,6 +52,7 @@ const outputPath =
   values.output ?? join(topicDir, `${values.title}-audio.epub`);
 const vpW = parseInt(values.width!, 10);
 const vpH = parseInt(values.height!, 10);
+const pageGapMs = parseNonNegativeInt(values["page-gap-ms"], "--page-gap-ms");
 
 // 1. 收集所有页面 png
 const files = await readdir(topicDir);
@@ -69,6 +73,7 @@ interface PageData {
   imageFile: string;       // 如 "1.png"
   audioBuf: Buffer | null;
   durationMs: number;      // 0 表示无音频
+  trailingPauseMs: number;
   sentences: Array<{ text: string; start_ms: number; end_ms: number }>;
 }
 
@@ -99,8 +104,17 @@ for (const pageNum of pageNums) {
     imageFile: imgFile,
     audioBuf,
     durationMs,
+    trailingPauseMs: 0,
     sentences,
   });
+}
+
+const lastNarratedIndex = findLastNarratedPageIndex(pageDataList);
+for (let i = 0; i < pageDataList.length; i++) {
+  const pd = pageDataList[i]!;
+  if (pageHasNarration(pd) && i < lastNarratedIndex) {
+    pd.trailingPauseMs = pageGapMs;
+  }
 }
 
 // 3. 构建 EPUB zip
@@ -123,10 +137,16 @@ for (const pd of pageDataList) {
   zip.file(`OEBPS/images/${pd.imageFile}`, imgData);
 
   if (pd.audioBuf) {
-    zip.file(`OEBPS/audio/${pd.pageNum}.mp3`, pd.audioBuf);
+    const audioBuf =
+      pd.trailingPauseMs > 0
+        ? Buffer.concat([pd.audioBuf, buildSilentMp3(pd.trailingPauseMs)])
+        : pd.audioBuf;
+    zip.file(`OEBPS/audio/${pd.pageNum}.mp3`, audioBuf);
     const smil = buildSmil({
       pageNum: pd.pageNum,
       sentences: pd.sentences,
+      durationMs: pd.durationMs,
+      trailingPauseMs: pd.trailingPauseMs,
     });
     zip.file(`OEBPS/smil/page-${pd.pageNum}.smil`, smil);
   }
@@ -146,7 +166,7 @@ const bookId = `urn:uuid:${crypto.randomUUID()}`;
 const modifiedISO = new Date().toISOString().replace(/\.\d+Z$/, "Z");
 const opfPages: PageMeta[] = pageDataList.map((pd) => ({
   pageNum: pd.pageNum,
-  durationMs: pd.durationMs,
+  durationMs: pd.durationMs + pd.trailingPauseMs,
 }));
 
 const opf = buildOpf({
@@ -193,10 +213,12 @@ const buffer = await zip.generateAsync({
 });
 await writeFile(outputPath, buffer);
 
-const totalDurMs = pageDataList.reduce((acc, pd) => acc + pd.durationMs, 0);
+const totalDurMs = opfPages.reduce((acc, pd) => acc + pd.durationMs, 0);
+const pageGapCount = pageDataList.filter((pd) => pd.trailingPauseMs > 0).length;
 console.log(`Audio EPUB generated: ${outputPath}`);
 console.log(`Size: ${(buffer.length / 1024 / 1024).toFixed(1)} MB`);
 console.log(`Pages: ${pageDataList.length} (含封面)`);
+console.log(`Page gaps: ${pageGapCount} x ${(pageGapMs / 1000).toFixed(1)}s`);
 console.log(`Total audio duration: ${(totalDurMs / 1000).toFixed(1)}s`);
 
 // 8. 可选 epubcheck
@@ -211,4 +233,26 @@ if (epubcheck.status === 0) {
 } else {
   console.log("\n未检测到 epubcheck，跳过结构校验。");
   console.log("建议安装 epubcheck 并确保它在 PATH 中。");
+}
+
+function parseNonNegativeInt(
+  value: string | undefined,
+  name: string,
+): number {
+  if (value == null || !/^\d+$/.test(value)) {
+    console.error(`${name} 必须是非负整数毫秒`);
+    process.exit(1);
+  }
+  return Number.parseInt(value, 10);
+}
+
+function pageHasNarration(pd: PageData): boolean {
+  return pd.audioBuf != null && pd.durationMs > 0 && pd.sentences.length > 0;
+}
+
+function findLastNarratedPageIndex(pages: PageData[]): number {
+  for (let i = pages.length - 1; i >= 0; i--) {
+    if (pageHasNarration(pages[i]!)) return i;
+  }
+  return -1;
 }
