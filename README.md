@@ -5,9 +5,10 @@ AI 驱动的儿童绘本创作工具。基于 Codex Desktop App skills，把一�
 ## 特性
 
 - **全流程引导**：从需求收集 → 分页脚本 → 角色与风格设定 → 图像 prompt → 批量生图 → 电子书打包，全部由 Codex skill 串起来
-- **图像生成**：Azure 部署的 `gpt-image-2`，1024×1024 PNG，文字直接渲染在画面中
+- **图像生成**：Azure 部署的 `gpt-image-2`，1024×1024 PNG，落盘前自动高保真压缩
 - **并行高效**：每页一张图，批量脚本最多 2 并发生成
 - **可出版输出**：正方形 210×210mm 国际主流绘本开本，导出 Fixed-Layout EPUB
+- **有声绘本**：基于 edge-tts 生成朗读音频和时间戳，打包 EPUB3 Media Overlays
 
 ## 项目结构
 
@@ -16,8 +17,10 @@ AI 驱动的儿童绘本创作工具。基于 Codex Desktop App skills，把一�
 ├── .claude/skills/
 │   └── ...                     # 旧 Claude Code skill，保留作迁移参考
 ├── .codex/skills/
-│   ├── picture-book-creator/   # Codex 绘本全流程 skill（脚本 + 角色 + 风格 + EPUB 打包脚本）
-│   └── image-generation/       # Codex 单张图生成 skill（封装 Azure gpt-image-2）
+│   ├── picture-book-creator/   # 绘本全流程 skill
+│   ├── image-generation/       # 单张图生成 skill（Azure gpt-image-2 + PNG 压缩）
+│   ├── text-to-speech/         # 单页朗读 MP3 + 时间戳生成 skill
+│   └── audio-picture-book-creator/ # 有声 EPUB3 Media Overlays 打包 skill
 ├── output/                     # 生成的绘本（图片 / EPUB），已 gitignore
 ├── package.json
 ├── tsconfig.json
@@ -29,6 +32,7 @@ AI 驱动的儿童绘本创作工具。基于 Codex Desktop App skills，把一�
 - [Bun](https://bun.sh/) ≥ 1.0
 - Codex Desktop App
 - Azure OpenAI 资源，已部署 `gpt-image-2` 模型
+- Python 3（仅有声绘本 / TTS 需要）
 
 ## 快速开始
 
@@ -36,7 +40,11 @@ AI 驱动的儿童绘本创作工具。基于 Codex Desktop App skills，把一�
 
 ```bash
 bun install
+# 如果需要有声绘本能力，再运行：
+bun run setup:venv
 ```
+
+`setup:venv` 默认使用清华 PyPI 镜像。需要指定其他源时，可在运行前设置 `PIP_INDEX_URL` 或 `PYPI_INDEX_URL`。
 
 ### 2. 配置环境变量
 
@@ -60,7 +68,7 @@ cp .env.example .env
 
 `picture-book-creator` skill 会按阶段引导你确认主题、角色、风格，生成每页 prompt 后通过本项目的批量脚本调用 `image-generation` 渲染所有页面，输出到 `output/<book-slug>/`。
 
-如果桌面 app 没有自动发现项目内的 `.codex/skills`，把 `.codex/skills/picture-book-creator` 和 `.codex/skills/image-generation` 复制到 `%USERPROFILE%\.codex\skills\` 后重启 Codex Desktop App。
+如果桌面 app 没有自动发现项目内的 `.codex/skills`，把 `.codex/skills/` 下的 4 个 skill 目录复制到 `%USERPROFILE%\.codex\skills\` 后重启 Codex Desktop App。
 
 ### 4. 手动调用脚本（可选）
 
@@ -73,6 +81,12 @@ bun run images -- --prompts output/<book-slug>/prompts --output output/<book-slu
 
 # 把一个目录下的页面图打包成 EPUB
 bun run epub -- --input output/<book-slug> --title "<书名标题>"
+
+# 为已有绘本批量生成朗读音频
+bun run audio-pages -- --topic-dir output/<book-slug> --concurrency 2
+
+# 把已有绘本和 audio/ 目录打包成有声 EPUB
+bun run audio-epub -- --topic-dir output/<book-slug> --title "<书名标题>"
 ```
 
 ## 输出示例
@@ -99,10 +113,15 @@ bun run epub -- --input output/<book-slug> --title "<书名标题>"
 ### 一次性 setup
 
 ```bash
-python3 -m venv .venv
-.venv/bin/pip install edge-tts
-# 可选：装 epubcheck 做结构校验
-brew install epubcheck
+bun run setup:venv
+# 可选：安装 epubcheck 并确保它在 PATH 中，用于结构校验
+```
+
+默认使用 `https://pypi.tuna.tsinghua.edu.cn/simple` 安装 `edge-tts`。如需切换源：
+
+```bash
+$env:PIP_INDEX_URL="https://mirrors.aliyun.com/pypi/simple/"
+bun run setup:venv
 ```
 
 ### 使用

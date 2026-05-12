@@ -15,6 +15,6 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true
   },
-  "include": [".codex/skills/**/*.ts"],
+  "include": [".codex/skills/**/*.ts", "scripts/**/*.ts"],
   "exclude": ["node_modules"]
 }
