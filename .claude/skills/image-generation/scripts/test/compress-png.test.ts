@@ -2,7 +2,7 @@ import { describe, expect, test, beforeAll, afterEach } from "bun:test";
 import { readFile, mkdtemp, rm, stat } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
-import { compressPngInPlace } from "../compress-png";
+import { compressPngInPlace, __setBinariesForTest } from "../compress-png";
 
 const FIXTURE = new URL(
   "../../tests/fixtures/sample.png",
@@ -66,6 +66,46 @@ describe("compressPngInPlace - SKIP_PNG_COMPRESS", () => {
     } finally {
       if (prev === undefined) delete process.env.SKIP_PNG_COMPRESS;
       else process.env.SKIP_PNG_COMPRESS = prev;
+    }
+  });
+});
+
+describe("compressPngInPlace - fallback", () => {
+  test("pngquant 二进制不存在 → mode=fallback, 文件等于原图", async () => {
+    const dir = await freshTmp();
+    const out = join(dir, "out.png");
+    const restore = __setBinariesForTest({
+      pngquant: "/nonexistent/pngquant-please-fail",
+    });
+    try {
+      const result = await compressPngInPlace(raw, out);
+      expect(result.mode).toBe("fallback");
+      expect(result.finalBytes).toBe(raw.length);
+      expect(result.fallbackReason).toMatch(/pngquant failed/);
+
+      const written = await readFile(out);
+      expect(written.equals(raw)).toBe(true);
+    } finally {
+      restore();
+    }
+  });
+
+  test("oxipng 二进制不存在 → mode=fallback, 文件等于原图", async () => {
+    const dir = await freshTmp();
+    const out = join(dir, "out.png");
+    const restore = __setBinariesForTest({
+      oxipng: "/nonexistent/oxipng-please-fail",
+    });
+    try {
+      const result = await compressPngInPlace(raw, out);
+      expect(result.mode).toBe("fallback");
+      expect(result.finalBytes).toBe(raw.length);
+      expect(result.fallbackReason).toMatch(/oxipng failed/);
+
+      const written = await readFile(out);
+      expect(written.equals(raw)).toBe(true);
+    } finally {
+      restore();
     }
   });
 });

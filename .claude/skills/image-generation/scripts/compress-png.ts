@@ -17,6 +17,24 @@ import { dirname, basename, join } from "path";
 import pngquantPath from "pngquant-bin";
 import oxipngPath from "oxipng-bin";
 
+// 测试 hook：允许测试覆盖 pngquant / oxipng 二进制路径。生产代码无人调用。
+let pngquantBin: string = pngquantPath as unknown as string;
+let oxipngBin: string = oxipngPath as unknown as string;
+
+export function __setBinariesForTest(opts: {
+  pngquant?: string;
+  oxipng?: string;
+}): () => void {
+  const prevP = pngquantBin;
+  const prevO = oxipngBin;
+  if (opts.pngquant !== undefined) pngquantBin = opts.pngquant;
+  if (opts.oxipng !== undefined) oxipngBin = opts.oxipng;
+  return () => {
+    pngquantBin = prevP;
+    oxipngBin = prevO;
+  };
+}
+
 const execFileP = promisify(execFile);
 
 const TIMEOUT_MS = 30_000;
@@ -55,7 +73,7 @@ export async function compressPngInPlace(
     let pngquantOk = true;
     try {
       await execFileP(
-        pngquantPath as unknown as string,
+        pngquantBin,
         [
           rawTmp,
           "--quality=80-95",
@@ -96,7 +114,7 @@ export async function compressPngInPlace(
       // ---- oxipng ----
       try {
         await execFileP(
-          oxipngPath as unknown as string,
+          oxipngBin,
           [
             "-o",
             "4",
