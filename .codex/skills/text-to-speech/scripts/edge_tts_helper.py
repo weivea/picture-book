@@ -80,7 +80,7 @@ def main() -> int:
     parser.add_argument("--pitch", default="+0Hz")
     args = parser.parse_args()
 
-    text = sys.stdin.read()
+    text = sys.stdin.buffer.read().decode("utf-8")
     if not text.strip():
         print(json.dumps({"type": "error", "message": "text 为空"}), file=sys.stderr)
         return 1
