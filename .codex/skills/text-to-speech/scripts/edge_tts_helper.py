@@ -53,7 +53,7 @@ async def synth(text: str, voice: str, rate: str, volume: str, pitch: str) -> in
                     "duration_us": chunk["duration"] // 10,
                     "text": chunk["text"],
                 }
-                print(json.dumps(event, ensure_ascii=False), file=sys.stderr, flush=True)
+                print(json.dumps(event), file=sys.stderr, flush=True)
     except edge_tts.exceptions.NoAudioReceived:
         print(json.dumps({"type": "error", "message": "合成失败：服务未返回音频，可能是文本含未支持字符"}), file=sys.stderr)
         return 1
