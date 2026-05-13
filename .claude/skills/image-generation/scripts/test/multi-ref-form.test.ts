@@ -183,4 +183,36 @@ describe("multi-ref multipart body", () => {
       server.stop(true);
     }
   }, TIMEOUT_MS);
+
+  it("4xx 响应 body 含 input_fidelity → stderr 出现 HINT 行", async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch: () =>
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "BadRequest",
+              message: "Unknown parameter: input_fidelity",
+            },
+          }),
+          { status: 400, headers: { "Content-Type": "application/json" } },
+        ),
+    });
+    const out = join(workDir, "out.png");
+    try {
+      const r1 = await makeRef("only.png");
+      const res = await runScript(
+        ["--prompt", "p", "--output", out, "--ref", r1],
+        {
+          AZURE_IMAGE_ENDPOINT: `http://localhost:${server.port}/generations`,
+          AZURE_IMAGE_EDITS_ENDPOINT: `http://localhost:${server.port}/edits`,
+        },
+      );
+      expect(res.status).toBe(1);
+      expect(res.stderr).toContain("HINT");
+      expect(res.stderr).toContain("IMAGE_GEN_INPUT_FIDELITY=off");
+    } finally {
+      server.stop(true);
+    }
+  }, TIMEOUT_MS);
 });

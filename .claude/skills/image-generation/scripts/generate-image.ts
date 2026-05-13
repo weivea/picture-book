@@ -245,7 +245,17 @@ async function fetchWithRetry(
 async function parseImageResponse(res: Response): Promise<Buffer> {
   if (!res.ok) {
     const text = await res.text().catch(() => "<no body>");
-    die(`API 返回 ${res.status} ${res.statusText}\n${text}`);
+    let hint = "";
+    if (
+      res.status >= 400 &&
+      res.status < 500 &&
+      text.includes("input_fidelity")
+    ) {
+      hint =
+        "\n[generate-image] HINT: 当前部署可能不识别 input_fidelity。" +
+        "在 .env 设置 IMAGE_GEN_INPUT_FIDELITY=off 重试。";
+    }
+    die(`API 返回 ${res.status} ${res.statusText}\n${text}${hint}`);
   }
   let json: { data?: Array<{ b64_json?: string }> };
   try {
