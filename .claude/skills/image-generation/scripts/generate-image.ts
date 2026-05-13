@@ -148,10 +148,10 @@ for (const p of refPaths) {
     die(`--ref 文件不存在：${p}`);
   }
 }
-if (refPaths.length > 1) {
+const MAX_REFS = 6;
+if (refPaths.length > MAX_REFS) {
   die(
-    `--ref 当前仅支持 1 张参考图（收到 ${refPaths.length} 张）。其他参考角色请在 prompt 文本中描述。` +
-      `如未来需要多 ref，请在脚本扩展 callEditsApi 后放开此限制。`,
+    `--ref 当前最多支持 ${MAX_REFS} 张参考图（收到 ${refPaths.length} 张）`,
   );
 }
 
