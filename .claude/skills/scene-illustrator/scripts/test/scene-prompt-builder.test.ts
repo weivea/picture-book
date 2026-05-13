@@ -70,4 +70,22 @@ describe("buildScenePrompt", () => {
       buildScenePrompt(scene, anchors, style, { portraitsDir: "/tmp/portraits" }),
     ).toThrow(/路人甲/);
   });
+
+  it("超长 body 截到 80 字并加省略号", () => {
+    const longBody = "甲".repeat(120);
+    const scene: Scene = {
+      index: 0,
+      title: "long",
+      location: "y",
+      mood: "calm",
+      participants: [],
+      body: longBody,
+      startLine: 1,
+    };
+    const { prompt } = buildScenePrompt(scene, anchors, style, {
+      portraitsDir: "/tmp/portraits",
+    });
+    expect(prompt).toContain("甲".repeat(80) + "…");
+    expect(prompt).not.toContain("甲".repeat(81));
+  });
 });

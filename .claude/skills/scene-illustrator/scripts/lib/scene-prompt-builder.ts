@@ -32,10 +32,15 @@ const MOOD_DESCRIPTOR: Record<Mood, string> = {
   mysterious: "mysterious atmosphere, fog, partial silhouette",
 };
 
+// scene 正文摘要的最大字符数（按视觉字符数；CJK 以外的语言也大致够用）
+const BODY_SUMMARY_MAX = 80;
+
 function describeBody(body: string): string {
-  // 极简：截前 80 字 → 让模型当场景动作描述
+  // 极简：截前 BODY_SUMMARY_MAX 字 → 让模型当场景动作描述
   const cleaned = body.replace(/\s+/g, " ").trim();
-  return cleaned.length > 80 ? cleaned.slice(0, 80) + "…" : cleaned;
+  return cleaned.length > BODY_SUMMARY_MAX
+    ? cleaned.slice(0, BODY_SUMMARY_MAX) + "…"
+    : cleaned;
 }
 
 export function buildScenePrompt(
