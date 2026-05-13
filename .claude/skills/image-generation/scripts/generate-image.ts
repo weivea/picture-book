@@ -163,7 +163,26 @@ if (!prompt) {
 const outputPath = resolve(values.output!);
 await mkdir(dirname(outputPath), { recursive: true });
 
-// --- 5a. /generations 端点（无参考图） ---
+// --- 5a. 解析图像 API 响应（generate / edits 共用） ---
+async function parseImageResponse(res: Response): Promise<Buffer> {
+  if (!res.ok) {
+    const text = await res.text().catch(() => "<no body>");
+    die(`API 返回 ${res.status} ${res.statusText}\n${text}`);
+  }
+  let json: { data?: Array<{ b64_json?: string }> };
+  try {
+    json = (await res.json()) as typeof json;
+  } catch (err) {
+    die(`API 响应不是合法 JSON：${(err as Error).message}`);
+  }
+  const b64 = json.data?.[0]?.b64_json;
+  if (!b64) {
+    die(`API 响应缺少 data[0].b64_json：${JSON.stringify(json).slice(0, 500)}`);
+  }
+  return Buffer.from(b64, "base64");
+}
+
+// --- 5b. /generations 端点（无参考图） ---
 async function callGenerateApi(): Promise<Buffer> {
   const body = {
     prompt,
@@ -172,27 +191,23 @@ async function callGenerateApi(): Promise<Buffer> {
     output_format: "png",
     n: 1,
   };
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "<no body>");
-    die(`API 返回 ${res.status} ${res.statusText}\n${text}`);
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    die(`网络错误：${(err as Error).message}`);
   }
-  const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
-  const b64 = json.data?.[0]?.b64_json;
-  if (!b64) {
-    die(`API 响应缺少 data[0].b64_json：${JSON.stringify(json).slice(0, 500)}`);
-  }
-  return Buffer.from(b64, "base64");
+  return parseImageResponse(res);
 }
 
-// --- 5b. /edits 端点（有参考图） ---
+// --- 5c. /edits 端点（有参考图） ---
 function deriveEditsEndpoint(): string {
   const explicit = process.env.AZURE_IMAGE_EDITS_ENDPOINT;
   if (explicit) return explicit;
@@ -217,21 +232,17 @@ async function callEditsApi(refPath: string): Promise<Buffer> {
   form.append("output_format", "png");
   form.append("n", "1");
 
-  const res = await fetch(editsEndpoint, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}` }, // 注意：不要设 Content-Type，让 fetch 自动加 boundary
-    body: form,
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "<no body>");
-    die(`API 返回 ${res.status} ${res.statusText}\n${text}`);
+  let res: Response;
+  try {
+    res = await fetch(editsEndpoint, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` }, // 注意：不要设 Content-Type，让 fetch 自动加 boundary
+      body: form,
+    });
+  } catch (err) {
+    die(`网络错误：${(err as Error).message}`);
   }
-  const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
-  const b64 = json.data?.[0]?.b64_json;
-  if (!b64) {
-    die(`API 响应缺少 data[0].b64_json：${JSON.stringify(json).slice(0, 500)}`);
-  }
-  return Buffer.from(b64, "base64");
+  return parseImageResponse(res);
 }
 
 // --- 5. 调 API（按是否有参考图路由）---
