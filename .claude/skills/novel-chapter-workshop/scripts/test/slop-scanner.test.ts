@@ -48,6 +48,26 @@ describe("scanSlop", () => {
     const md = `---\nfoo: bar\n---\n\n第一段，没问题。\n第二段，缓缓地走过来。\n`;
     const hits = scanSlop(md, tinyAntiSlop);
     expect(hits[0].line).toBe(6);
-    expect(hits[0].column).toBeGreaterThan(0);
+    // "第二段，缓缓地走过来。" → 缓缓地 starts at index 4 (1-based column 5)
+    expect(hits[0].column).toBe(5);
+  });
+
+  it("多行 SCENE 注释不打乱后续行号", () => {
+    const md = [
+      "---",
+      "x: 1",
+      "---",
+      "",
+      "<!-- SCENE: 序",
+      "  location: 北郊",
+      "  mood: tense",
+      "-->",
+      "第一行没问题。",
+      "第二行：缓缓地走来。",
+      "",
+    ].join("\n");
+    const hits = scanSlop(md, tinyAntiSlop);
+    // 5 frontmatter lines (1–4) + 4-line SCENE comment (5–8) + body line 9 + body line 10
+    expect(hits[0].line).toBe(10);
   });
 });

@@ -16,11 +16,11 @@ interface TieredVocab {
 export function parseAntiSlop(md: string): TieredVocab {
   const out: TieredVocab = { 1: [], 2: [], 3: [] };
   let current: 1 | 2 | 3 | null = null;
-  for (const line of md.split("\n")) {
+  for (const line of md.replace(/\r\n/g, "\n").split("\n")) {
     const head = line.match(/^##\s+Tier\s+(\d)/);
     if (head) {
       const t = parseInt(head[1], 10);
-      current = (t === 1 || t === 2 || t === 3 ? t : null) as 1 | 2 | 3 | null;
+      current = t === 1 || t === 2 || t === 3 ? t : null;
       continue;
     }
     if (!current) continue;
@@ -31,12 +31,14 @@ export function parseAntiSlop(md: string): TieredVocab {
 }
 
 function stripFrontmatterAndComments(md: string): string {
+  // 先归一化换行，避免 CRLF 让 frontmatter 正则失效
+  const normalized = md.replace(/\r\n/g, "\n");
   // 去 frontmatter；保留行号 → 用换行替换
-  let body = md.replace(/^---\n[\s\S]*?\n---\n/, (m) =>
+  let body = normalized.replace(/^---\n[\s\S]*?\n---\n/, (m) =>
     "\n".repeat(m.split("\n").length - 1),
   );
-  // 去 SCENE 注释行（只去 <!-- ... --> 标签本身，正文保留）
-  body = body.replace(/<!--[^]*?-->/g, (m) => " ".repeat(m.length));
+  // 去 SCENE 注释块；保留换行 → 行号不漂，列号在每行内部仍准
+  body = body.replace(/<!--[^]*?-->/g, (m) => m.replace(/[^\n]/g, " "));
   return body;
 }
 
