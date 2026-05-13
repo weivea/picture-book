@@ -134,4 +134,76 @@ brew install epubcheck
 | `image-generation`（已扩展 `--ref`） | 通用出图，Azure gpt-image-2 /generations + /edits |
 | `text-to-speech` | 通用 TTS，edge-tts |
 
-第一次使用：按 plan 段顺序实现各 phase，跑 `bun test .claude/skills/` 验证全绿。
+### 一次性 setup
+
+除了绘本流程已要求的 Bun + Azure key，本流水线还需要 `edge-tts`（Python）做朗读：
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install edge-tts
+# 可选：装 epubcheck 做结构校验
+brew install epubcheck
+```
+
+`.env` 中除了 `AZURE_API_KEY` / `AZURE_IMAGE_ENDPOINT`，建议再补 `AZURE_IMAGE_EDIT_ENDPOINT`（image-to-image 锚定用 `/edits` 端点）。
+
+### 使用
+
+在仓库目录启动 Claude Code，用一句自然语言描述你想写的小说，例如：
+
+> 写一本中文有声图文小说：北郊废墟里，失明少女靠灵气感知世界，遇到隐居灵气医师，从拒绝到接受。tier 选 short。
+
+`illustrated-audio-novel-creator` skill 会自动触发，按 7 个 stage 依次推进，并在 4 个 GATE 暂停等你确认：
+
+| Gate | 时机 | 你要看什么 |
+|---|---|---|
+| GATE-1 | Stage 1 后 | 故事方向（10 行内 elevator pitch + outline 概览） |
+| GATE-2 | Stage 2 后 | `outline.md` + `characters.md` 全文 |
+| GATE-3 | Stage 4 portraits 完成后 | `portraits/` 所有立绘 |
+| GATE-4 | Stage 5 修订完成后 | 抽查 1–2 章正文 + 1–2 张插图 |
+
+回 "OK" / "继续" 即进入下一 stage；要修改时直接说出来（"林晚改成 16 岁" / "第 3 章节奏太慢"），主编排器会调对应子 skill 重跑。
+
+#### tier 选择
+
+| tier | 章节 × 字数 | 总字数 | 节拍 | 估时（朗读） |
+|---|---|---|---|---|
+| short | 5 × 2000 | 10,000 | 5-act | ~40 min |
+| medium | 12 × 2500 | 30,000 | 9-beat | ~2 h |
+| long | 24 × 3000 | 72,000 | save-the-cat-15 | ~5 h（额外触发 Opus review 循环） |
+
+#### 单 stage / 单章重跑（高级）
+
+每个子 skill 都可以独立调，适合"只重做某一章"或"只重画某一张图"：
+
+```bash
+# 只重画 ch_03 全部场景
+bun run .claude/skills/scene-illustrator/scripts/illustrate-chapter.ts \
+  --output-dir novel-output/2026-05-13-my-novel --chapter 3
+
+# 只重打 EPUB（不重跑 TTS）
+bun run .claude/skills/audio-novel-packager/scripts/package-novel.ts \
+  --output-dir novel-output/2026-05-13-my-novel --stage epub
+```
+
+完整 stage 名见 `.claude/skills/illustrated-audio-novel-creator/references/stage-flow.md`。
+
+### 输出
+
+```
+novel-output/<YYYY-MM-DD>-<slug>/
+├── world.md / characters.md / outline.md / voice.md / style.md
+├── chapters/ch_NN.md (+ .eval.json + .timing.json + .split.json)
+├── portraits/<name>.png
+├── illustrations/ch_NN/scene_KK.png
+├── audio/ch_NN.mp3
+├── dist/<basename>.epub        # Reflowable EPUB3 + 句级 Media Overlays
+├── dist/<basename>.md          # 归档 Markdown（含全部插图）
+└── state.json                  # phase / debt / 每章状态
+```
+
+### 阅读器建议
+
+同有声绘本：Apple Books 与 Thorium Reader 完整支持句级朗读高亮；Kindle / 微信读书仅作静态 EPUB 阅读。
+
+第一次跑之前建议执行 `bun test .claude/skills/` 验证 114 项测试全绿。
