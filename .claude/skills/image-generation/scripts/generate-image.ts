@@ -26,11 +26,13 @@
  */
 
 import { parseArgs } from "util";
-import { mkdir, readFile } from "fs/promises";
+import { mkdir, readFile, stat } from "fs/promises";
 import { existsSync } from "fs";
 import { dirname, resolve, join } from "path";
 import { compressPngInPlace, type CompressResult } from "./compress-png";
 import { acquireSlot, sleep } from "./lib/concurrency-gate";
+import { detectRefMime, MAX_REF_BYTES } from "./lib/ref-image";
+import { readInputFidelity } from "./lib/input-fidelity";
 
 const DEFAULT_ENDPOINT =
   "https://<your-resource-name>.cognitiveservices.azure.com/openai/deployments/gpt-image-2/images/generations?api-version=2024-02-01";
@@ -295,23 +297,53 @@ function deriveEditsEndpoint(): string {
   );
 }
 
-async function callEditsApi(refPath: string): Promise<Buffer> {
+async function callEditsApi(refPaths: string[]): Promise<Buffer> {
   const editsEndpoint = deriveEditsEndpoint();
-  const refBuf = await readFile(refPath);
-  const refBlob = new Blob([refBuf], { type: "image/png" });
+
+  // 预读 + 校验所有 ref（先全部读完再发送，便于在网络前 fail-fast）。
+  const refs: { name: string; buf: Buffer; mime: "image/png" | "image/jpeg" }[] = [];
+  for (const p of refPaths) {
+    const st = await stat(p);
+    if (st.size > MAX_REF_BYTES) {
+      die(
+        `--ref ${p} 大小 ${(st.size / (1024 * 1024)).toFixed(1)} MB 超过 50 MB 单文件上限`,
+      );
+    }
+    const buf = await readFile(p);
+    const mime = detectRefMime(buf);
+    if (!mime) {
+      die(`--ref ${p} 不是合法 PNG/JPG（magic 字节失败）`);
+    }
+    const base = p.split("/").pop() ?? "ref.png";
+    refs.push({ name: base, buf, mime });
+  }
+
+  // input_fidelity：env 控制；非法值在此处 throw → die
+  let fidelity: ReturnType<typeof readInputFidelity>;
+  try {
+    fidelity = readInputFidelity();
+  } catch (err) {
+    die((err as Error).message);
+  }
+
   const res = await fetchWithRetry(
     () => {
       // form 必须每次重建，因为部分 server 会消费 stream
       const form = new FormData();
-      form.append("image", refBlob, "ref.png");
+      for (const r of refs) {
+        form.append("image", new Blob([r.buf], { type: r.mime }), r.name);
+      }
       form.append("prompt", prompt);
       form.append("size", apiSize);
       form.append("quality", values.quality!);
       form.append("output_format", "png");
       form.append("n", "1");
+      if (fidelity !== "off") {
+        form.append("input_fidelity", fidelity);
+      }
       return fetch(editsEndpoint, {
         method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}` }, // 注意：不要设 Content-Type，让 fetch 自动加 boundary
+        headers: { Authorization: `Bearer ${apiKey}` }, // 不要设 Content-Type，让 fetch 自动加 boundary
         body: form,
       });
     },
@@ -330,8 +362,7 @@ try {
   if (refPaths.length === 0) {
     buffer = await callGenerateApi();
   } else {
-    // refPaths.length === 1 已由前面的校验保证
-    buffer = await callEditsApi(refPaths[0]!);
+    buffer = await callEditsApi(refPaths);
   }
 } finally {
   await release();
