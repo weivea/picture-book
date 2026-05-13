@@ -64,7 +64,8 @@ const REQUIRED_CHARACTER_FIELDS = [
 ] as const;
 
 function parseFrontmatter(md: string): { data: Record<string, string>; body: string } {
-  const m = md.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  const normalized = md.replace(/\r\n/g, "\n");
+  const m = normalized.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
   if (!m) throw new Error("frontmatter not found");
   const data: Record<string, string> = {};
   for (const line of m[1].split("\n")) {
