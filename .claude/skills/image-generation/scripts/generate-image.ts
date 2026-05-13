@@ -28,7 +28,7 @@
 import { parseArgs } from "util";
 import { mkdir, readFile, stat } from "fs/promises";
 import { existsSync } from "fs";
-import { dirname, resolve, join } from "path";
+import { basename, dirname, resolve, join } from "path";
 import { compressPngInPlace, type CompressResult } from "./compress-png";
 import { acquireSlot, sleep } from "./lib/concurrency-gate";
 import { detectRefMime, MAX_REF_BYTES } from "./lib/ref-image";
@@ -300,13 +300,23 @@ function deriveEditsEndpoint(): string {
 async function callEditsApi(refPaths: string[]): Promise<Buffer> {
   const editsEndpoint = deriveEditsEndpoint();
 
+  // input_fidelity：env 控制；非法值在此处 throw → die。
+  // 先于 ref 读取做校验，避免读完几十 MB 才因为 env 配错而失败。
+  let fidelity: ReturnType<typeof readInputFidelity>;
+  try {
+    fidelity = readInputFidelity();
+  } catch (err) {
+    die((err as Error).message);
+  }
+
   // 预读 + 校验所有 ref（先全部读完再发送，便于在网络前 fail-fast）。
+  const MAX_REF_MB = (MAX_REF_BYTES / (1024 * 1024)).toFixed(0);
   const refs: { name: string; buf: Buffer; mime: "image/png" | "image/jpeg" }[] = [];
   for (const p of refPaths) {
     const st = await stat(p);
     if (st.size > MAX_REF_BYTES) {
       die(
-        `--ref ${p} 大小 ${(st.size / (1024 * 1024)).toFixed(1)} MB 超过 50 MB 单文件上限`,
+        `--ref ${p} 大小 ${(st.size / (1024 * 1024)).toFixed(1)} MB 超过 ${MAX_REF_MB} MB 单文件上限`,
       );
     }
     const buf = await readFile(p);
@@ -314,16 +324,7 @@ async function callEditsApi(refPaths: string[]): Promise<Buffer> {
     if (!mime) {
       die(`--ref ${p} 不是合法 PNG/JPG（magic 字节失败）`);
     }
-    const base = p.split("/").pop() ?? "ref.png";
-    refs.push({ name: base, buf, mime });
-  }
-
-  // input_fidelity：env 控制；非法值在此处 throw → die
-  let fidelity: ReturnType<typeof readInputFidelity>;
-  try {
-    fidelity = readInputFidelity();
-  } catch (err) {
-    die((err as Error).message);
+    refs.push({ name: basename(p) || "ref.png", buf, mime });
   }
 
   const res = await fetchWithRetry(

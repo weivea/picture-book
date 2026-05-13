@@ -3,8 +3,9 @@
 // 默认带 input_fidelity=high；off 时不带。
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { rm, writeFile, mkdir } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { rm, writeFile } from "node:fs/promises";
+import { existsSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 
 const SCRIPT = resolve(".claude/skills/image-generation/scripts/generate-image.ts");
@@ -12,6 +13,8 @@ const SCRIPT = resolve(".claude/skills/image-generation/scripts/generate-image.t
 const TINY_PNG_B64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNgAAIAAAUAAen63NgAAAAASUVORK5CYII=";
 const TINY_PNG_BUF = Buffer.from(TINY_PNG_B64, "base64");
+
+const TIMEOUT_MS = 30_000;
 
 interface CapturedRequest {
   imageNames: string[];
@@ -41,9 +44,8 @@ function startCapture(): { server: ReturnType<typeof Bun.serve>; captured: Captu
 }
 
 let workDir: string;
-beforeEach(async () => {
-  workDir = `/tmp/test-multi-ref-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-  await mkdir(workDir, { recursive: true });
+beforeEach(() => {
+  workDir = mkdtempSync(join(tmpdir(), "multi-ref-"));
 });
 afterEach(async () => {
   await rm(workDir, { recursive: true, force: true });
@@ -98,7 +100,7 @@ describe("multi-ref multipart body", () => {
     } finally {
       server.stop(true);
     }
-  }, 30_000);
+  }, TIMEOUT_MS);
 
   it("默认带 input_fidelity=high", async () => {
     const { server, captured } = startCapture();
@@ -113,11 +115,12 @@ describe("multi-ref multipart body", () => {
         },
       );
       expect(res.status).toBe(0);
+      expect(captured.length).toBe(1);
       expect(captured[0].fidelity).toBe("high");
     } finally {
       server.stop(true);
     }
-  }, 30_000);
+  }, TIMEOUT_MS);
 
   it("IMAGE_GEN_INPUT_FIDELITY=off → form 不含 input_fidelity 字段", async () => {
     const { server, captured } = startCapture();
@@ -133,11 +136,12 @@ describe("multi-ref multipart body", () => {
         },
       );
       expect(res.status).toBe(0);
+      expect(captured.length).toBe(1);
       expect(captured[0].fidelity).toBeNull();
     } finally {
       server.stop(true);
     }
-  }, 30_000);
+  }, TIMEOUT_MS);
 
   it("IMAGE_GEN_INPUT_FIDELITY=low → form 字段值 = low", async () => {
     const { server, captured } = startCapture();
@@ -153,11 +157,12 @@ describe("multi-ref multipart body", () => {
         },
       );
       expect(res.status).toBe(0);
+      expect(captured.length).toBe(1);
       expect(captured[0].fidelity).toBe("low");
     } finally {
       server.stop(true);
     }
-  }, 30_000);
+  }, TIMEOUT_MS);
 
   it("非法 IMAGE_GEN_INPUT_FIDELITY 立即 die", async () => {
     const { server } = startCapture();
@@ -177,5 +182,5 @@ describe("multi-ref multipart body", () => {
     } finally {
       server.stop(true);
     }
-  }, 30_000);
+  }, TIMEOUT_MS);
 });
