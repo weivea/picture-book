@@ -3,7 +3,7 @@
 
 import { parseArgs } from "node:util";
 import { readFile, writeFile } from "node:fs/promises";
-import { join, resolve, dirname } from "node:path";
+import { join, resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   parseCharactersMd,
@@ -111,6 +111,10 @@ if (!values["output-dir"] || !values.seed || !values.tier) {
   console.error("用法: --output-dir <dir> --seed <text> --tier <short|medium|long>");
   process.exit(1);
 }
+if (!["short", "medium", "long"].includes(values.tier)) {
+  console.error(`--tier 必须是 short|medium|long，收到 "${values.tier}"`);
+  process.exit(1);
+}
 const tier = values.tier as Tier;
 const outputDir = resolve(values["output-dir"]!);
 
@@ -151,11 +155,15 @@ const charsForVoice: CharacterForVoice[] = charactersParsed.characters.map((c) =
 const voiceMap = assignVoices(charsForVoice, catalogBullets);
 
 // 4. 回写 characters.md（替换 voice_profile: auto → 实际 id）
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 let updatedMd = charactersMd;
 for (const c of charactersParsed.characters) {
   const voice = voiceMap[c.name];
   // 仅替换该角色块内首次出现的 "voice_profile: auto"
-  const re = new RegExp(`(## ${c.name}[\\s\\S]*?voice_profile:\\s*)auto`);
+  // 用 \s*\n 锁住 heading 边界，避免 "## 林晚" 误匹配 "## 林晚秋"
+  const re = new RegExp(
+    `(## ${escapeRe(c.name)}\\s*\\n[\\s\\S]*?voice_profile:\\s*)auto`,
+  );
   updatedMd = updatedMd.replace(re, `$1${voice}`);
 }
 await writeFile(join(outputDir, "characters.md"), updatedMd);
@@ -163,7 +171,7 @@ await writeFile(join(outputDir, "characters.md"), updatedMd);
 // 5. 写 state.json
 const state: FoundationState = {
   version: 1,
-  project: values.project ?? outputDir.split("/").pop() ?? "novel",
+  project: values.project ?? basename(outputDir) ?? "novel",
   tier,
   phase: "foundation_done",
   seed: values.seed!,
