@@ -17,7 +17,7 @@ const anchors = new Map<string, string>([
 ]);
 
 describe("buildScenePrompt", () => {
-  it("style + mood + anchors + body 顺序正确", () => {
+  it("style + mood + anchors + body 顺序正确，refPaths = 全部 participants", () => {
     const scene: Scene = {
       index: 0,
       title: "门后之物",
@@ -27,7 +27,7 @@ describe("buildScenePrompt", () => {
       body: "林晚走入废墟，听见沈渊的低语。",
       startLine: 5,
     };
-    const { prompt, refPath } = buildScenePrompt(scene, anchors, style, {
+    const { prompt, refPaths } = buildScenePrompt(scene, anchors, style, {
       portraitsDir: "/tmp/portraits",
     });
     expect(prompt.startsWith("Webtoon-style anime illustration")).toBe(true);
@@ -35,10 +35,13 @@ describe("buildScenePrompt", () => {
     expect(prompt).toContain("silver hair");
     expect(prompt).toContain("grey beard");
     expect(prompt.endsWith("no watermark, no text, no signature")).toBe(true);
-    expect(refPath).toBe("/tmp/portraits/林晚.png");
+    expect(refPaths).toEqual([
+      "/tmp/portraits/林晚.png",
+      "/tmp/portraits/沈渊.png",
+    ]);
   });
 
-  it("participants=[] 时无 ref", () => {
+  it("participants=[] 时 refPaths 为空数组", () => {
     const scene: Scene = {
       index: 0,
       title: "废墟",
@@ -48,10 +51,10 @@ describe("buildScenePrompt", () => {
       body: "雪落在断墙上。",
       startLine: 1,
     };
-    const { prompt, refPath } = buildScenePrompt(scene, anchors, style, {
+    const { prompt, refPaths } = buildScenePrompt(scene, anchors, style, {
       portraitsDir: "/tmp/portraits",
     });
-    expect(refPath).toBeNull();
+    expect(refPaths).toEqual([]);
     expect(prompt).toContain("lonely atmosphere");
     expect(prompt).not.toContain("silver hair");
   });

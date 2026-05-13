@@ -14,7 +14,8 @@ export interface BuildOpts {
 
 export interface BuildResult {
   prompt: string;
-  refPath: string | null; // 第一个 participant 的立绘路径
+  /** 每个 participant 一条路径（不检查文件是否存在；调用方自行 filter）。 */
+  refPaths: string[];
 }
 
 const MOOD_DESCRIPTOR: Record<Mood, string> = {
@@ -64,8 +65,8 @@ export function buildScenePrompt(
   parts.push(style.negative);
 
   const prompt = parts.filter(Boolean).join(", ");
-  const refPath = scene.participants.length
-    ? join(opts.portraitsDir, `${scene.participants[0]}.png`)
-    : null;
-  return { prompt, refPath };
+  const refPaths = scene.participants.map((name) =>
+    join(opts.portraitsDir, `${name}.png`),
+  );
+  return { prompt, refPaths };
 }
