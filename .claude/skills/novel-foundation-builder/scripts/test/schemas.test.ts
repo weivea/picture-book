@@ -8,13 +8,56 @@ import {
 
 describe("parseCharactersMd", () => {
   it("解析合规的 characters.md", () => {
-    const md = `---\ncount: 2\n---\n\n## 林晚\n- role: 主角\n- core: 失明少女靠灵气感知世界\n- wound: 12岁失明\n- want: 复明\n- need: 接受新感官\n- lie: 我必须看见才有价值\n- appearance: long silver hair, dark green robe, milky eyes\n- voice_profile: auto\n\n## 沈渊\n- role: 导师\n- core: 隐居灵气医师\n- wound: 失去爱徒\n- want: 不再收徒\n- need: 重新信任\n- lie: 教导即背叛\n- appearance: tall man with grey beard, faded blue robe\n- voice_profile: auto\n`;
+    const md = `---
+count: 4
+---
+
+## 林晚
+- role: 主角
+- core: 失明少女靠灵气感知世界
+- wound: 12岁失明
+- want: 复明
+- need: 接受新感官
+- lie: 我必须看见才有价值
+- appearance: long silver hair, dark green robe, milky eyes
+- voice_profile: auto
+
+## 沈渊
+- role: 导师
+- core: 隐居灵气医师
+- wound: 失去爱徒
+- want: 不再收徒
+- need: 重新信任
+- lie: 教导即背叛
+- appearance: tall man with grey beard, faded blue robe
+- voice_profile: auto
+
+## 周泽
+- role: 盟友
+- core: 流放的工程师
+- wound: 失去家人
+- want: 复仇
+- need: 释怀
+- lie: 痛苦定义我
+- appearance: lean man with leather jacket, scarred forearm
+- voice_profile: auto
+
+## 苏雨
+- role: 对手
+- core: 旧时代余孽
+- wound: 信仰崩塌
+- want: 重建秩序
+- need: 接受变化
+- lie: 旧规则才是正义
+- appearance: short woman with black coat, silver brooch
+- voice_profile: auto
+`;
     const result = parseCharactersMd(md);
-    expect(result.count).toBe(2);
-    expect(result.characters).toHaveLength(2);
+    expect(result.count).toBe(4);
+    expect(result.characters).toHaveLength(4);
     expect(result.characters[0].name).toBe("林晚");
     expect(result.characters[0].appearance).toContain("silver hair");
-    expect(result.characters[1].voice_profile).toBe("auto");
+    expect(result.characters[3].voice_profile).toBe("auto");
   });
 
   it("缺少 appearance 字段时报错", () => {
