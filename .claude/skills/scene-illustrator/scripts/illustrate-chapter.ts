@@ -3,6 +3,7 @@
 
 import { parseArgs } from "node:util";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { buildAnchors } from "./lib/anchor-builder";
@@ -66,9 +67,13 @@ const portraitsDir = join(outputDir, "portraits");
 await mkdir(portraitsDir, { recursive: true });
 const portraitAudit = await audit(anchors, portraitsDir);
 
+const IMAGE_GEN_SCRIPT =
+  process.env.IMAGE_GEN_SCRIPT ??
+  ".claude/skills/image-generation/scripts/generate-image.ts";
+
 async function runImageGen(args: string[]): Promise<void> {
   await new Promise<void>((res, rej) => {
-    const cp = spawn("bun", ["run", ".claude/skills/image-generation/scripts/generate-image.ts", ...args], {
+    const cp = spawn("bun", ["run", IMAGE_GEN_SCRIPT, ...args], {
       stdio: "inherit",
     });
     cp.on("exit", (code) => (code === 0 ? res() : rej(new Error(`image-gen exit ${code}`))));
@@ -138,7 +143,9 @@ await mkdir(illustrationsDir, { recursive: true });
 // 并行派发 scenes：image-generation 内部 rate-gate 自动节流；fail-fast 同 portraits。
 await Promise.all(
   targetScenes.map(async (scene) => {
-    const { prompt, refPath } = buildScenePrompt(scene, anchors, style, { portraitsDir });
+    const { prompt, refPaths } = buildScenePrompt(scene, anchors, style, { portraitsDir });
+    // 过滤掉文件不存在的 ref（让模型靠 prompt 描述兜底，不 fail）
+    const existingRefs = refPaths.filter((p) => existsSync(p));
     const sceneIdx = String(scene.index + 1).padStart(2, "0");
     const out = join(illustrationsDir, `scene_${sceneIdx}.png`);
     const args = [
@@ -148,7 +155,9 @@ await Promise.all(
       "--size", "1024x1024",
       "--quality", "high",
     ];
-    if (refPath) args.push("--ref", refPath);
+    for (const r of existingRefs) {
+      args.push("--ref", r);
+    }
     await runImageGen(args);
     await writeFile(
       join(illustrationsDir, `scene_${sceneIdx}.meta.json`),
@@ -159,14 +168,14 @@ await Promise.all(
           mood: scene.mood,
           participants: scene.participants,
           prompt,
-          refUsed: refPath,
+          refsUsed: existingRefs,
           recheck: null,
         },
         null,
         2,
       ),
     );
-    console.log(`✓ scene ${sceneIdx}: ${scene.title}`);
+    console.log(`✓ scene ${sceneIdx}: ${scene.title} (${existingRefs.length} refs)`);
   }),
 );
 
