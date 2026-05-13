@@ -79,6 +79,7 @@ const { values } = parseArgs({
     ratio: { type: "string" },
     size: { type: "string" },
     quality: { type: "string", default: "high" },
+    ref: { type: "string", multiple: true },
   },
   strict: true,
 });
@@ -131,6 +132,16 @@ if (
 const allowedQuality = new Set(["low", "medium", "high"]);
 if (!allowedQuality.has(values.quality!)) {
   die(`--quality 必须是 low / medium / high，收到 "${values.quality}"`);
+}
+
+const refPaths: string[] = (values.ref ?? []).map((p) => resolve(p));
+for (const p of refPaths) {
+  if (!existsSync(p)) {
+    die(`--ref 文件不存在：${p}`);
+  }
+}
+if (refPaths.length > 3) {
+  die(`--ref 最多支持 3 张参考图（收到 ${refPaths.length} 张）。多余的图请合成一张拼图后再传。`);
 }
 
 // --- 3. 取 prompt（参数优先，否则 stdin）---
