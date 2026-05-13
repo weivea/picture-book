@@ -21,7 +21,7 @@ description: |
 
 ## When NOT to Use
 
-- **图像编辑 / inpainting**：`/openai/.../images/edits` 接口本 skill 未实现
+- **掩码 inpainting**：本 skill `/edits` 端点支持参考图（`--ref`），但不支持 `--mask` 区域编辑
 - **批量并发**：本 skill 单次只生成一张图。并发由调用方控制（picture-book-creator 限 4 并发）
 - **失败自动重试**：本 skill 失败即 `exit 1`。调用方决定是否重试
 
@@ -46,6 +46,19 @@ description: |
 > ⚠️ skill 内置的 `.env` 解析器只支持最常见的 `KEY=value` 格式（含 `#` 注释、两侧引号），
 > 不支持多行值、变量插值或转义符。需要这些功能请改用 `dotenv` 包。
 
+## Reference-image Mode（image-to-image）
+
+传入 `--ref <path>` 时切到 Azure gpt-image-2 的 `/edits` 端点，把参考图作为 multipart body 的 `image` 字段。
+用于"角色立绘 + prompt 描述场景"实现跨场景视觉一致性（scene-illustrator 调用范式）。
+
+| 变量 | 必需 | 说明 |
+|---|---|---|
+| `AZURE_IMAGE_EDITS_ENDPOINT` | ✗ | 完整 `/edits` 端点 URL；不设则从 `AZURE_IMAGE_ENDPOINT` 自动替换 `/generations` → `/edits` |
+
+**当前限制：**
+- 多 ref 只生效第 1 张（其他角色请在 prompt 文本中描述）
+- 不支持 `--mask`（区域编辑场景目前不需要）
+
 ## Quick Reference
 
 ```bash
@@ -55,6 +68,7 @@ bun run .claude/skills/image-generation/scripts/generate-image.ts \
   [--ratio 1:1]         # 仅支持 1:1，传其他值会 exit 1
   [--size 1024x1024]    # MVP 内部固定 1024x1024，传其他值会 stderr 警告但继续
   [--quality high]      # low | medium | high，默认 high
+  [--ref <path>]        # 可重复（最多 3 张）。传入则走 /edits 端点做 image-to-image；本版本只生效第 1 张
 ```
 
 **环境变量（除 `AZURE_API_KEY` / `AZURE_IMAGE_ENDPOINT` 外）：**
