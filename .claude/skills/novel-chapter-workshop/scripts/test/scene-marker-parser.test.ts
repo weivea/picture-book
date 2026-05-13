@@ -2,7 +2,7 @@
 import { describe, it, expect } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { parseScenes, type Scene } from "../lib/scene-marker-parser";
+import { parseScenes } from "../lib/scene-marker-parser";
 
 const FIX = (name: string) =>
   resolve(import.meta.dir, "fixtures", name);
@@ -40,5 +40,21 @@ describe("parseScenes", () => {
     const md = `<!-- SCENE: x | location: y | mood: calm | participants: none -->\nbody\n<!-- /SCENE -->\n`;
     const scenes = parseScenes(md);
     expect(scenes[0].participants).toEqual([]);
+  });
+
+  it("含连字符的参与者名不被吞掉", () => {
+    const md = `<!-- SCENE: x | location: y | mood: calm | participants: Mary-Jane, 林晚 -->\nbody\n<!-- /SCENE -->\n`;
+    const scenes = parseScenes(md);
+    expect(scenes).toHaveLength(1);
+    expect(scenes[0].participants).toEqual(["Mary-Jane", "林晚"]);
+  });
+
+  it("CRLF 输入也能正常解析", () => {
+    const md =
+      `<!-- SCENE: x | location: y | mood: calm | participants: 林晚 -->\r\nbody\r\n<!-- /SCENE -->\r\n`;
+    const scenes = parseScenes(md);
+    expect(scenes).toHaveLength(1);
+    expect(scenes[0].mood).toBe("calm");
+    expect(scenes[0].participants).toEqual(["林晚"]);
   });
 });
