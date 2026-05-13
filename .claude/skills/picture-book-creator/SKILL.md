@@ -227,8 +227,7 @@ image-generation skill 的可选参数：
 - `--ratio 1:1`
 - `--size 4K`
 
-**并发限制：** 每批最多同时派发 **4 个**生成任务，等当前批次全部完成后再派发下一批，避免 API 频率限制。
-例如 15 页绘本分 4 批：第 1 批 4 页 → 第 2 批 4 页 → 第 3 批 4 页 → 第 4 批 3 页。
+**并发限制：** image-generation skill 内置跨进程信号量，**全局最多 2 个**生成任务同时打 Azure API（默认值；通过 `IMAGE_GEN_MAX_CONCURRENCY` 可调）。本 skill 派 subagent 时无需手工分批 —— 即使一次性派 15 个，底层也会自动排队成 2 并发执行，避免 Azure 速率限制。
 
 **禁止：** 不要自行编写脚本或直接调用 `generate-image.ts`，必须通过 `image-generation` skill 调用。
 

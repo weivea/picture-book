@@ -2,7 +2,9 @@
  * 调用 Azure gpt-image-2 部署生成单张 PNG。
  *
  * 由 image-generation skill 包装；picture-book-creator 在阶段 6 逐页 fork
- * subagent 调用本脚本，每次只生成 1 张图。并发与重试由调用方负责。
+ * subagent 调用本脚本，每次只生成 1 张图。脚本本身通过 lib/concurrency-gate
+ * 强制全局最多 2 个实例同时调 Azure API（IMAGE_GEN_MAX_CONCURRENCY 可调）；
+ * 重试由调用方负责。
  *
  * 用法：
  *   # 方式 1：项目根目录放置 .env，写入 AZURE_API_KEY=...（推荐）

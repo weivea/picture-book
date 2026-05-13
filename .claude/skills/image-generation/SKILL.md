@@ -4,8 +4,10 @@ description: |
   Use when needing to generate one PNG image from a text prompt via the Azure
   gpt-image-2 deployment. Triggered by picture-book-creator (one call per page)
   or any task that says "generate image", "make a picture", "render this prompt
-  to PNG". One invocation = exactly one image; concurrency, batching and retries
-  are the caller's responsibility. Requires AZURE_API_KEY env var.
+  to PNG". One invocation = exactly one image; the skill enforces a global
+  cap of 2 concurrent API calls across all processes (override via
+  `IMAGE_GEN_MAX_CONCURRENCY`); batching and retries remain the caller's
+  responsibility. Requires AZURE_API_KEY env var.
 ---
 
 # Image Generation
@@ -22,8 +24,19 @@ description: |
 ## When NOT to Use
 
 - **掩码 inpainting**：本 skill `/edits` 端点支持参考图（`--ref`），但不支持 `--mask` 区域编辑
-- **批量并发**：本 skill 单次只生成一张图。并发由调用方控制（picture-book-creator 限 4 并发）
+- **绕过并发上限**：本 skill 强制最多 2 个实例同时调 API（跨进程信号量），见下面"并发上限"
 - **失败自动重试**：本 skill 失败即 `exit 1`。调用方决定是否重试
+
+## 并发上限（自动）
+
+无论从几个 shell / subagent / skill 同时调本脚本，**全局最多只有 2 个实例**真正在打 Azure API；多余的实例会**等待**前面的释放后再继续，不会失败。这是为了规避 Azure gpt-image-2 的速率限制（通常 RPM 较紧）。
+
+机制：`/tmp/image-gen-sema/` 下的 `slot-N.lock` 目录基于 `mkdir` 的原子性做跨进程信号量。进程崩溃留下的 lock 由下一次 acquire 自动回收（`kill -0` 判活 + 10 min mtime 兜底）。
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `IMAGE_GEN_MAX_CONCURRENCY` | `2` | 上限。整数 1..16。需要更激进的并发可在 `.env` 里调高。 |
+| `IMAGE_GEN_SEMA_DIR` | `/tmp/image-gen-sema` | 信号量目录（一般不用改；测试时会指向临时目录） |
 
 ## Prerequisites
 
