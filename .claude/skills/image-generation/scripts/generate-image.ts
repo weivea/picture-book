@@ -111,7 +111,7 @@ const endpoint = process.env.AZURE_IMAGE_ENDPOINT ?? DEFAULT_ENDPOINT;
 if (endpoint.includes("<your-resource-name>")) {
   die(
     "AZURE_IMAGE_ENDPOINT 未设置（DEFAULT_ENDPOINT 仅是占位符）。请在项目根目录的 `.env` 中填入" +
-      " AZURE_IMAGE_ENDPOINT=https://<你的资源名>.cognitiveservices.azure.com/openai/deployments/gpt-image-2/images/generations?api-version=2024-02-01"
+      " AZURE_IMAGE_ENDPOINT=https://<你的资源名>.cognitiveservices.azure.com/openai/deployments/gpt-image-2/images/generations?api-version=2025-04-01-preview"
   );
 }
 
@@ -303,7 +303,7 @@ function deriveEditsEndpoint(): string {
   }
   die(
     "无法推导 /edits 端点。请在 .env 中显式设置 AZURE_IMAGE_EDITS_ENDPOINT=" +
-      "https://<你的资源名>.cognitiveservices.azure.com/openai/deployments/gpt-image-2/images/edits?api-version=2024-02-01"
+      "https://<你的资源名>.cognitiveservices.azure.com/openai/deployments/gpt-image-2/images/edits?api-version=2025-04-01-preview"
   );
 }
 
