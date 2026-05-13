@@ -28,6 +28,7 @@ import { mkdir, readFile } from "fs/promises";
 import { existsSync } from "fs";
 import { dirname, resolve, join } from "path";
 import { compressPngInPlace, type CompressResult } from "./compress-png";
+import { acquireSlot } from "./lib/concurrency-gate";
 
 const DEFAULT_ENDPOINT =
   "https://<your-resource-name>.cognitiveservices.azure.com/openai/deployments/gpt-image-2/images/generations?api-version=2024-02-01";
@@ -246,17 +247,24 @@ async function callEditsApi(refPath: string): Promise<Buffer> {
 }
 
 // --- 5. 调 API（按是否有参考图路由）---
+// 全局并发上限由 concurrency-gate 强制（默认 2，IMAGE_GEN_MAX_CONCURRENCY 可调）。
+// 拿不到 slot 时会等待，不会失败。release 必须在 finally 里执行。
+const release = await acquireSlot();
 let buffer: Buffer;
-if (refPaths.length === 0) {
-  buffer = await callGenerateApi();
-} else {
-  if (refPaths.length > 1) {
-    console.error(
-      `[generate-image] WARN: 收到 ${refPaths.length} 张 --ref，本版本只用第 1 张（${refPaths[0]}）走 /edits 端点；` +
-        `其他参考角色请在 prompt 文本中描述。`
-    );
+try {
+  if (refPaths.length === 0) {
+    buffer = await callGenerateApi();
+  } else {
+    if (refPaths.length > 1) {
+      console.error(
+        `[generate-image] WARN: 收到 ${refPaths.length} 张 --ref，本版本只用第 1 张（${refPaths[0]}）走 /edits 端点；` +
+          `其他参考角色请在 prompt 文本中描述。`
+      );
+    }
+    buffer = await callEditsApi(refPaths[0]!);
   }
-  buffer = await callEditsApi(refPaths[0]!);
+} finally {
+  await release();
 }
 
 // --- 6. 解码并压缩落盘 ---
