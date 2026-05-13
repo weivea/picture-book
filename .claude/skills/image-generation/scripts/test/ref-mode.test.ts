@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, mock } from "bun:test";
+import { describe, it, expect } from "bun:test";
 import { spawnSync } from "child_process";
 import { resolve } from "path";
 
@@ -15,7 +15,15 @@ describe("--ref routing", () => {
     const res = spawnSync(
       "bun",
       ["run", SCRIPT, "--prompt", "x", "--output", out, "--ref", "/no/such/file.png"],
-      { encoding: "utf-8", env: { ...process.env, AZURE_API_KEY: "fake" } }
+      {
+        encoding: "utf-8",
+        env: {
+          ...process.env,
+          AZURE_API_KEY: "fake",
+          AZURE_IMAGE_ENDPOINT:
+            "https://test.invalid/openai/deployments/x/images/generations?api-version=2024-02-01",
+        },
+      }
     );
     expect(res.status).toBe(1);
     expect(res.stderr).toContain("--ref 文件不存在");
@@ -31,7 +39,15 @@ describe("--ref routing", () => {
         "--output", out,
         "--ref", REF, "--ref", REF, "--ref", REF, "--ref", REF,
       ],
-      { encoding: "utf-8", env: { ...process.env, AZURE_API_KEY: "fake" } }
+      {
+        encoding: "utf-8",
+        env: {
+          ...process.env,
+          AZURE_API_KEY: "fake",
+          AZURE_IMAGE_ENDPOINT:
+            "https://test.invalid/openai/deployments/x/images/generations?api-version=2024-02-01",
+        },
+      }
     );
     expect(res.status).toBe(1);
     expect(res.stderr).toContain("最多支持 3 张参考图");
