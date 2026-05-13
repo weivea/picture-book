@@ -224,10 +224,11 @@ prompt: <该页完整图像 Prompt> | output: output/<topic>/<page_number>.png
 其中 `<page_number>` 从 0（封面）开始编号。
 
 image-generation skill 的可选参数：
-- `--ratio 1:1`
-- `--size 4K`
+- `--ratio 1:1`（默认且当前唯一支持的比例）
 
-**并发限制：** image-generation skill 内置跨进程信号量，**全局最多 2 个**生成任务同时打 Azure API（默认值；通过 `IMAGE_GEN_MAX_CONCURRENCY` 可调）。本 skill 派 subagent 时无需手工分批 —— 即使一次性派 15 个，底层也会自动排队成 2 并发执行，避免 Azure 速率限制。
+> 不要传 `--size 4K` 等其他尺寸。本 skill MVP 内部固定 `1024x1024`，传入会被静默降级（仅 stderr 一行警告）。
+
+**速率限制：** image-generation skill 内置跨进程速率门，**默认 2 RPM（两次请求最少间隔 35 秒）**，对应 Azure gpt-image-2 的硬速率上限。本 skill 派 subagent 时无需手工分批 —— 即使一次性派 15 个，底层 rate-gate 会自动排队（每 35s 一个），并对 429/5xx 内置 3 次退避重试。15 张图大约耗时 8-9 分钟。
 
 **禁止：** 不要自行编写脚本或直接调用 `generate-image.ts`，必须通过 `image-generation` skill 调用。
 

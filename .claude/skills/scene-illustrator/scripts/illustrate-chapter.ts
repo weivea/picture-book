@@ -75,17 +75,27 @@ async function runImageGen(args: string[]): Promise<void> {
   });
 }
 
-for (const name of portraitAudit.missing) {
-  const anchor = anchors.get(name)!;
-  const prompt = `${style.promptPrefix}, character portrait, ${anchor}, neutral background, ${style.negative}`;
-  const out = join(portraitsDir, `${name}.png`);
-  await runImageGen(["--prompt", prompt, "--output", out, "--size", "1024x1024", "--quality", "high"]);
-  await writeFile(
-    join(portraitsDir, `${name}.meta.json`),
-    JSON.stringify({ name, prompt, anchor, generatedAt: new Date().toISOString() }, null, 2),
-  );
-  console.log(`✓ portrait: ${name}`);
-}
+// 并行派发：image-generation 内置 rate-gate（默认 35s 间隔）会自动节流到 Azure RPM 上限。
+// fail-fast：任意一张失败立即抛出，章节生成中断（与原串行行为一致）。
+await Promise.all(
+  portraitAudit.missing.map(async (name) => {
+    const anchor = anchors.get(name)!;
+    const prompt = `${style.promptPrefix}, character portrait, ${anchor}, neutral background, ${style.negative}`;
+    const out = join(portraitsDir, `${name}.png`);
+    await runImageGen([
+      "--prompt", prompt,
+      "--output", out,
+      "--ratio", "1:1",
+      "--size", "1024x1024",
+      "--quality", "high",
+    ]);
+    await writeFile(
+      join(portraitsDir, `${name}.meta.json`),
+      JSON.stringify({ name, prompt, anchor, generatedAt: new Date().toISOString() }, null, 2),
+    );
+    console.log(`✓ portrait: ${name}`);
+  }),
+);
 
 if (mode === "portraits-only") {
   console.log("portraits-only 完成。");
@@ -125,30 +135,39 @@ if (mode === "scene") {
 const illustrationsDir = join(outputDir, "illustrations", `ch_${String(chapterN).padStart(2, "0")}`);
 await mkdir(illustrationsDir, { recursive: true });
 
-for (const scene of targetScenes) {
-  const { prompt, refPath } = buildScenePrompt(scene, anchors, style, { portraitsDir });
-  const sceneIdx = String(scene.index + 1).padStart(2, "0");
-  const out = join(illustrationsDir, `scene_${sceneIdx}.png`);
-  const args = ["--prompt", prompt, "--output", out, "--size", "1024x1024", "--quality", "high"];
-  if (refPath) args.push("--ref", refPath);
-  await runImageGen(args);
-  await writeFile(
-    join(illustrationsDir, `scene_${sceneIdx}.meta.json`),
-    JSON.stringify(
-      {
-        sceneIndex: scene.index,
-        title: scene.title,
-        mood: scene.mood,
-        participants: scene.participants,
-        prompt,
-        refUsed: refPath,
-        recheck: null,
-      },
-      null,
-      2,
-    ),
-  );
-  console.log(`✓ scene ${sceneIdx}: ${scene.title}`);
-}
+// 并行派发 scenes：image-generation 内部 rate-gate 自动节流；fail-fast 同 portraits。
+await Promise.all(
+  targetScenes.map(async (scene) => {
+    const { prompt, refPath } = buildScenePrompt(scene, anchors, style, { portraitsDir });
+    const sceneIdx = String(scene.index + 1).padStart(2, "0");
+    const out = join(illustrationsDir, `scene_${sceneIdx}.png`);
+    const args = [
+      "--prompt", prompt,
+      "--output", out,
+      "--ratio", "1:1",
+      "--size", "1024x1024",
+      "--quality", "high",
+    ];
+    if (refPath) args.push("--ref", refPath);
+    await runImageGen(args);
+    await writeFile(
+      join(illustrationsDir, `scene_${sceneIdx}.meta.json`),
+      JSON.stringify(
+        {
+          sceneIndex: scene.index,
+          title: scene.title,
+          mood: scene.mood,
+          participants: scene.participants,
+          prompt,
+          refUsed: refPath,
+          recheck: null,
+        },
+        null,
+        2,
+      ),
+    );
+    console.log(`✓ scene ${sceneIdx}: ${scene.title}`);
+  }),
+);
 
 console.log(`done. chapter ${chapterN} → ${illustrationsDir}`);

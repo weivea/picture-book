@@ -47,6 +47,7 @@ description: Use to generate consistent character illustrations for all SCENE bl
    bun run .claude/skills/image-generation/scripts/generate-image.ts \
      --prompt "<prompt>" \
      --output <output_dir>/portraits/<name>.png \
+     --ratio 1:1 \
      --size 1024x1024 \
      --quality high
    ```
@@ -66,11 +67,13 @@ bun run .claude/skills/scene-illustrator/scripts/illustrate-chapter.ts \
 脚本内部：
 1. 调 `scene-marker-parser.parseScenes(ch.md)`
 2. 对每个 scene，按 mode 过滤
-3. 对每个待出图 scene：
+3. 对每个待出图 scene（**Promise.all 并行派发**，由 image-generation 的速率门统一节流到 Azure RPM 上限）：
    - 拼 prompt（见 scene-prompt-builder.ts）
    - 收集 refs：`scene.participants` 中每人的 portrait 路径
    - 调 image-generation，**首位 participant 的 portrait 作为 `--ref`**（image-to-image 锚定）
    - 落盘 PNG + meta.json
+
+> 任意一张失败 → `Promise.all` 立即抛错，章节生成中断（fail-fast）。失败 scene 用 `--mode scene --scene-index <i>` 单独重试。
 
 #### Step 2：一致性 recheck（Tier 1.5）
 
