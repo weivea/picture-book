@@ -35,7 +35,7 @@ import { detectRefMime, MAX_REF_BYTES } from "./lib/ref-image";
 import { readInputFidelity } from "./lib/input-fidelity";
 
 const DEFAULT_ENDPOINT =
-  "https://<your-resource-name>.cognitiveservices.azure.com/openai/deployments/gpt-image-2/images/generations?api-version=2024-02-01";
+  "https://<your-resource-name>.cognitiveservices.azure.com/openai/deployments/gpt-image-2/images/generations?api-version=2025-04-01-preview";
 
 // 退避重试参数（仅对 429/5xx 生效）
 const MAX_RETRIES = 3;

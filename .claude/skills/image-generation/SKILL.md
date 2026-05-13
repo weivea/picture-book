@@ -57,6 +57,7 @@ description: |
 | `IMAGE_GEN_MAX_CONCURRENCY` | ✗ | 并发上限。默认 `1`，范围 `1..16` |
 | `IMAGE_GEN_SEMA_DIR` | ✗ | 信号量目录。默认 `/tmp/image-gen-sema` |
 | `SKIP_PNG_COMPRESS` | ✗ | `1` = 跳过 pngquant + oxipng 压缩，直接落盘原图。调试 / 对照用 |
+| `IMAGE_GEN_INPUT_FIDELITY` | ✗ | `high`（默认）\| `low` \| `auto` \| `off`。控制 `/edits` 请求里的 `input_fidelity` 字段；`off` = 完全不发送该字段（用于不识别该字段的部署） |
 
 **推荐做法**：复制项目根目录的 `.env.example` 为 `.env`，填入真实 key。
 `.env` 已被 `.gitignore` 屏蔽，不会泄漏。
@@ -69,14 +70,18 @@ description: |
 
 ## Reference-image Mode（image-to-image）
 
-传入 `--ref <path>` 时切到 Azure gpt-image-2 的 `/edits` 端点，把参考图作为 multipart body 的 `image` 字段。
+传入 `--ref <path>` 时切到 Azure 的 `/edits` 端点，按 Microsoft 文档把每张参考图作为
+**重复的 `image` multipart 字段**（不是 `image[]`，不是 JSON 数组）。
 用于"角色立绘 + prompt 描述场景"实现跨场景视觉一致性（scene-illustrator 调用范式）。
 
 `AZURE_IMAGE_EDITS_ENDPOINT` 见上面 Prerequisites 表。
 
-**当前限制：**
-- **只接受 1 张 `--ref`**，传多张直接 `exit 1`（其他参考角色请在 prompt 文本中描述）
+**限制：**
+- 接受 0..6 张 `--ref`，传 ≥ 7 张直接 `exit 1`
+- 每张 ref 必须是 PNG 或 JPEG（按 magic 字节判定），单文件 ≤ 50 MB
 - 不支持 `--mask`（区域编辑场景目前不需要）
+- `input_fidelity` 默认 `high`，由 `IMAGE_GEN_INPUT_FIDELITY` env 控制；
+  设为 `off` 完全不发送该字段（用于不识别该字段的部署）
 
 ## Quick Reference
 
@@ -87,7 +92,7 @@ bun run .claude/skills/image-generation/scripts/generate-image.ts \
   [--ratio 1:1]         # 仅支持 1:1，传其他值会 exit 1
   [--size 1024x1024]    # MVP 内部固定 1024x1024，传其他值会 stderr 警告但继续
   [--quality high]      # low | medium | high，默认 high
-  [--ref <path>]        # 传入则走 /edits 端点做 image-to-image。仅支持 1 张
+  [--ref <path>]        # 可重复 0..6 次。传入则走 /edits 端点（image-to-image）
 ```
 
 退出码语义：
@@ -139,7 +144,11 @@ picture-book-creator 阶段 6.2 以 `context: fork` 形式派发本 skill，
 |---|---|---|
 | `AZURE_API_KEY 未设置` | 环境变量缺失 | 让用户 `export AZURE_API_KEY=...`，不要重试 |
 | `Prompt 长度 ... 超过 4000` | prompt 过长 | 精简 prompt，不要重试 |
-| `--ref 当前仅支持 1 张` | 传了 ≥2 张 `--ref` | 调用方修复参数，不要重试 |
+| `--ref 当前最多支持 6 张参考图（收到 N 张）` | 传了 ≥ 7 张 `--ref` | 调用方修复参数，不要重试 |
+| `--ref ... 不是合法 PNG/JPG（magic 字节失败）` | ref 文件不是 PNG/JPEG | 调用方换文件或转码 |
+| `--ref ... 大小 X MB 超过 50 MB 单文件上限` | 单 ref > 50 MB | 调用方压缩或换图 |
+| `IMAGE_GEN_INPUT_FIDELITY 必须是 high\|low\|auto\|off` | env 取了非法值 | 修 env |
+| `HINT: ... IMAGE_GEN_INPUT_FIDELITY=off` | API 返回 4xx 且 body 含 `input_fidelity` | 在 .env 设置 `IMAGE_GEN_INPUT_FIDELITY=off` 后重试 |
 | `API 返回 429`（出现在 stderr 末尾，标记 attempt 4/4） | 内置 3 次退避重试仍被限流 | 等待几分钟再上层重试，或检查是否多个进程绕过 rate-gate |
 | `API 返回 5xx`（attempt 4/4） | 服务端持续故障 | 上层退避后重试 1-2 次 |
 | `API 返回 4xx`（非 429） | prompt 被审核拒绝 / 参数非法 | 调整 prompt 后重试，否则跳过本页 |
@@ -155,7 +164,8 @@ picture-book-creator 阶段 6.2 以 `context: fork` 形式派发本 skill，
 - **prompt 含未转义的 `'` 或 `"`**：用 stdin / heredoc 而不是 `--prompt "..."` 即可避免
 - **prompt 长度超 4000**：脚本立即 die，不会发请求；上层准备 prompt 时务必检查长度
 - **传 `--ratio 16:9`**：会 exit 1。本 skill MVP 只支持 1:1
-- **传多张 `--ref`**：会 exit 1（语义陷阱：旧版本会静默丢弃，新版本严格 die）
+- **传 ≥ 7 张 `--ref`**：会 exit 1。本 skill 上限 6
+- **ref 文件是 WebP / GIF / SVG**：仅 PNG / JPEG 接受，magic 字节失败立即 exit 1
 - **依赖跨进程 RPM 时不在同一信号量目录**：所有调用方必须共享 `IMAGE_GEN_SEMA_DIR`，否则速率门各算各的
 - **期望文件大小验证**：本 skill 只判断 API 是否成功；调用方（如 picture-book-creator 阶段 6.3）
   自行检查 `>100KB`
