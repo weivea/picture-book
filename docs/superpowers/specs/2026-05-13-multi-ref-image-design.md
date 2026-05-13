@@ -76,7 +76,7 @@ bun run .claude/skills/image-generation/scripts/generate-image.ts \
 | 字段 | 之前 | 之后 |
 |---|---|---|
 | `--ref <path>` | 0 或 1，> 1 die | 0..6，> 6 die |
-| `--input-fidelity` | — | **不暴露**（在 scene-illustrator 内部决定，依赖 env） |
+| `--input-fidelity` | — | **不暴露**（image-generation 内部默认 `high`，由 env 调整） |
 | `IMAGE_GEN_INPUT_FIDELITY` env | — | `high`（默认）\| `low` \| `auto` \| `off`，其它值 die |
 | `DEFAULT_ENDPOINT` 占位的 api-version | `2024-02-01` | `2025-04-01-preview`（仅注释/文档；用户自有 endpoint 不动） |
 
@@ -96,8 +96,9 @@ bun run .claude/skills/image-generation/scripts/generate-image.ts \
 ### 3.4 SKILL.md 文档同步
 
 - `image-generation/SKILL.md`：
-  - 删 "When NOT to Use" 中"`--ref` 不支持多张"
-  - "Reference-image Mode" 节改成"接受 0..6 张 `--ref`"
+  - "Reference-image Mode" 节里"**当前限制**"段从"只接受 1 张 `--ref`"改成"接受 0..6 张 `--ref`"
+  - 对应 "Common Mistakes" 中"传多张 `--ref`：会 exit 1"那条改成"传 ≥ 7 张 `--ref`：会 exit 1"
+  - "Quick Reference" 注释"仅支持 1 张"改成"0..6 张"
   - 新增 `IMAGE_GEN_INPUT_FIDELITY` 进环境变量表
   - 错误表新增几行（详见 §4）
   - DEFAULT_ENDPOINT 占位串里 api-version 同步
