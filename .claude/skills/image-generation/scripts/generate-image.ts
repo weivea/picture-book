@@ -163,18 +163,16 @@ if (!prompt) {
 const outputPath = resolve(values.output!);
 await mkdir(dirname(outputPath), { recursive: true });
 
-// --- 5. 调 API ---
-const body = {
-  prompt,
-  size: apiSize,
-  quality: values.quality,
-  output_format: "png",
-  n: 1,
-};
-
-let res: Response;
-try {
-  res = await fetch(endpoint, {
+// --- 5a. /generations 端点（无参考图） ---
+async function callGenerateApi(): Promise<Buffer> {
+  const body = {
+    prompt,
+    size: apiSize,
+    quality: values.quality,
+    output_format: "png",
+    n: 1,
+  };
+  const res = await fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -182,31 +180,75 @@ try {
     },
     body: JSON.stringify(body),
   });
-} catch (err) {
-  die(`网络错误：${(err as Error).message}`);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "<no body>");
+    die(`API 返回 ${res.status} ${res.statusText}\n${text}`);
+  }
+  const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
+  const b64 = json.data?.[0]?.b64_json;
+  if (!b64) {
+    die(`API 响应缺少 data[0].b64_json：${JSON.stringify(json).slice(0, 500)}`);
+  }
+  return Buffer.from(b64, "base64");
 }
 
-if (!res.ok) {
-  const text = await res.text().catch(() => "<no body>");
-  die(`API 返回 ${res.status} ${res.statusText}\n${text}`);
-}
-
-let json: { data?: Array<{ b64_json?: string }> };
-try {
-  json = (await res.json()) as typeof json;
-} catch (err) {
-  die(`API 响应不是合法 JSON：${(err as Error).message}`);
-}
-
-const b64 = json.data?.[0]?.b64_json;
-if (!b64) {
+// --- 5b. /edits 端点（有参考图） ---
+function deriveEditsEndpoint(): string {
+  const explicit = process.env.AZURE_IMAGE_EDITS_ENDPOINT;
+  if (explicit) return explicit;
+  if (endpoint.includes("/images/generations")) {
+    return endpoint.replace("/images/generations", "/images/edits");
+  }
   die(
-    `API 响应缺少 data[0].b64_json 字段，原始响应：${JSON.stringify(json).slice(0, 500)}`
+    "无法推导 /edits 端点。请在 .env 中显式设置 AZURE_IMAGE_EDITS_ENDPOINT=" +
+      "https://<你的资源名>.cognitiveservices.azure.com/openai/deployments/gpt-image-2/images/edits?api-version=2024-02-01"
   );
 }
 
+async function callEditsApi(refPath: string): Promise<Buffer> {
+  const editsEndpoint = deriveEditsEndpoint();
+  const refBuf = await readFile(refPath);
+  const refBlob = new Blob([refBuf], { type: "image/png" });
+  const form = new FormData();
+  form.append("image", refBlob, "ref.png");
+  form.append("prompt", prompt);
+  form.append("size", apiSize);
+  form.append("quality", values.quality!);
+  form.append("output_format", "png");
+  form.append("n", "1");
+
+  const res = await fetch(editsEndpoint, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}` }, // 注意：不要设 Content-Type，让 fetch 自动加 boundary
+    body: form,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "<no body>");
+    die(`API 返回 ${res.status} ${res.statusText}\n${text}`);
+  }
+  const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
+  const b64 = json.data?.[0]?.b64_json;
+  if (!b64) {
+    die(`API 响应缺少 data[0].b64_json：${JSON.stringify(json).slice(0, 500)}`);
+  }
+  return Buffer.from(b64, "base64");
+}
+
+// --- 5. 调 API（按是否有参考图路由）---
+let buffer: Buffer;
+if (refPaths.length === 0) {
+  buffer = await callGenerateApi();
+} else {
+  if (refPaths.length > 1) {
+    console.error(
+      `[generate-image] WARN: 收到 ${refPaths.length} 张 --ref，本版本只用第 1 张（${refPaths[0]}）走 /edits 端点；` +
+        `其他参考角色请在 prompt 文本中描述。`
+    );
+  }
+  buffer = await callEditsApi(refPaths[0]!);
+}
+
 // --- 6. 解码并压缩落盘 ---
-const buffer = Buffer.from(b64, "base64");
 let result: CompressResult;
 try {
   result = await compressPngInPlace(buffer, outputPath);
