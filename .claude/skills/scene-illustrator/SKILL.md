@@ -70,8 +70,10 @@ bun run .claude/skills/scene-illustrator/scripts/illustrate-chapter.ts \
 3. 对每个待出图 scene（**Promise.all 并行派发**，由 image-generation 的速率门统一节流到 Azure RPM 上限）：
    - 拼 prompt（见 scene-prompt-builder.ts）
    - 收集 refs：`scene.participants` 中每人的 portrait 路径
-   - 调 image-generation，**首位 participant 的 portrait 作为 `--ref`**（image-to-image 锚定）
-   - 落盘 PNG + meta.json
+   - 文件不存在的 portrait 自动 skip（让模型靠 prompt 描述兜底）
+   - 调 image-generation，**所有存在 portrait 的 participants 都作为 `--ref` 多次传入**
+     （image-to-image 多角色锚定，最多 6 张 — image-generation 内部上限）
+   - 落盘 PNG + meta.json（`refsUsed` 为本张图实际使用的 ref 路径数组）
 
 > 任意一张失败 → `Promise.all` 立即抛错，章节生成中断（fail-fast）。失败 scene 用 `--mode scene --scene-index <i>` 单独重试。
 
@@ -92,7 +94,7 @@ bun run .claude/skills/scene-illustrator/scripts/illustrate-chapter.ts \
 ## Quality bar
 
 - [ ] portraits 每个角色 1 张，且 prompt 中包含 appearance 锚定
-- [ ] 每张 scene 图：refsUsed.length ≥ 1（除非 participants=none）
+- [ ] 每张 scene 图：refsUsed.length = 存在 portrait 的 participants 数量（0 表示 participants=空 或 portraits 全缺失）
 - [ ] recheck 通过率 ≥ 80%
 - [ ] illustrations 总数 ≈ Σ scene_count（允许 ±10%）
 
