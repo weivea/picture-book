@@ -2,7 +2,7 @@
 import { describe, it, expect } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { scanPatterns, type PatternHit } from "../lib/pattern-scanner";
+import { scanPatterns } from "../lib/pattern-scanner";
 
 const FIX = (name: string) =>
   resolve(import.meta.dir, "fixtures", name);

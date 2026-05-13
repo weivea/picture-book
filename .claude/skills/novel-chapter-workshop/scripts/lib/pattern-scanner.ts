@@ -7,7 +7,6 @@ export interface PatternHit {
 }
 
 interface RuleCtx {
-  raw: string;
   bodyLines: string[]; // 去 frontmatter 后的行
   fmOffset: number; // body 起始对应原文的行号偏移
 }
@@ -76,9 +75,11 @@ const RULES: Rule[] = [
 ];
 
 export function scanPatterns(chapterMd: string): PatternHit[] {
-  const fmMatch = chapterMd.match(/^---\n[\s\S]*?\n---\n/);
+  // 与 slop-scanner 保持一致：CRLF 归一化，避免 frontmatter 正则失效
+  const normalized = chapterMd.replace(/\r\n/g, "\n");
+  const fmMatch = normalized.match(/^---\n[\s\S]*?\n---\n/);
   const fmOffset = fmMatch ? fmMatch[0].split("\n").length - 1 : 0;
-  const body = fmMatch ? chapterMd.slice(fmMatch[0].length) : chapterMd;
-  const ctx: RuleCtx = { raw: chapterMd, bodyLines: body.split("\n"), fmOffset };
+  const body = fmMatch ? normalized.slice(fmMatch[0].length) : normalized;
+  const ctx: RuleCtx = { bodyLines: body.split("\n"), fmOffset };
   return RULES.flatMap((r) => r(ctx));
 }
