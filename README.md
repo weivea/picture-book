@@ -105,3 +105,33 @@ brew install epubcheck
 - ✅ Apple Books（iOS / macOS）：完整支持朗读 + 高亮 + 翻页
 - ✅ Thorium Reader（跨平台）：完整支持
 - ⚠️ Kindle / 微信读书：不支持 Media Overlays，仅作为静态 EPUB 显示
+
+## 有声图文小说（Illustrated Audio Novel）
+
+从一个 seed 概念产出 Reflowable EPUB3（句级高亮） + 多 voice MP3 + 网漫范式插图的端到端流水线。
+
+```text
+用户对话 → /illustrated-audio-novel-creator
+        → seed + tier(short|medium|long)
+        → Stage 1..7（4 个人工 GATE）
+        → novel-output/<date>-<slug>/dist/*.epub + *.md + audio/*.mp3
+```
+
+设计与实现：
+
+- Spec：`docs/superpowers/specs/2026-05-13-illustrated-audio-novel-design.md`
+- Plan：`docs/superpowers/plans/2026-05-13-illustrated-audio-novel-plan.md`
+
+参与的 skill：
+
+| Skill | 责任 |
+|---|---|
+| `illustrated-audio-novel-creator` | 主编排器（用户入口） |
+| `novel-foundation-builder` | world / characters / outline / voice / style 5 层文档 |
+| `novel-chapter-workshop` | 单章 draft / evaluate / revise |
+| `scene-illustrator` | 角色立绘 + 场景插图（image-to-image 锚定） |
+| `audio-novel-packager` | 多 voice TTS + Reflowable EPUB3 + Media Overlays |
+| `image-generation`（已扩展 `--ref`） | 通用出图，Azure gpt-image-2 /generations + /edits |
+| `text-to-speech` | 通用 TTS，edge-tts |
+
+第一次使用：按 plan 段顺序实现各 phase，跑 `bun test .claude/skills/` 验证全绿。
