@@ -17,10 +17,16 @@ export function parseAntiSlop(md: string): TieredVocab {
   const out: TieredVocab = { 1: [], 2: [], 3: [] };
   let current: 1 | 2 | 3 | null = null;
   for (const line of md.replace(/\r\n/g, "\n").split("\n")) {
-    const head = line.match(/^##\s+Tier\s+(\d)/);
-    if (head) {
-      const t = parseInt(head[1], 10);
-      current = t === 1 || t === 2 || t === 3 ? t : null;
+    // 任何 "## " 标题都会重置 tier 上下文，避免后续小节（如示例代码）被误归入上一 Tier
+    const heading = line.match(/^##\s+(.+)$/);
+    if (heading) {
+      const tierMatch = heading[1].match(/^Tier\s+(\d)/);
+      if (tierMatch) {
+        const t = parseInt(tierMatch[1], 10);
+        current = t === 1 || t === 2 || t === 3 ? t : null;
+      } else {
+        current = null;
+      }
       continue;
     }
     if (!current) continue;

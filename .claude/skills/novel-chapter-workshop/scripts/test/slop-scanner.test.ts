@@ -70,4 +70,18 @@ describe("scanSlop", () => {
     // 5 frontmatter lines (1–4) + 4-line SCENE comment (5–8) + body line 9 + body line 10
     expect(hits[0].line).toBe(10);
   });
+
+  it("非 Tier 的 ## 小节不会污染上一 Tier 词表", () => {
+    const md = [
+      "## Tier 1（绝对禁用）",
+      "- 缓缓地",
+      "",
+      "## 使用示例",
+      "- 不该被当成 Tier 1 的示例短语",
+      "",
+    ].join("\n");
+    // 在示例小节里的 bullet 不应被扫描命中
+    const hits = scanSlop("不该被当成 Tier 1 的示例短语\n", md);
+    expect(hits).toHaveLength(0);
+  });
 });

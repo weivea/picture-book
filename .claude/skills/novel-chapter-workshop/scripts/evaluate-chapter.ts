@@ -23,7 +23,13 @@ if (!values.chapter) {
 }
 
 const chapterPath = resolve(values.chapter);
-const ch = await readFile(chapterPath, "utf8");
+let ch: string;
+try {
+  ch = await readFile(chapterPath, "utf8");
+} catch (e) {
+  console.error(`无法读取章节 ${chapterPath}: ${(e as NodeJS.ErrnoException).message}`);
+  process.exit(1);
+}
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ANTI_SLOP_DEFAULT = resolve(
@@ -33,7 +39,13 @@ const ANTI_SLOP_DEFAULT = resolve(
 const antiSlopPath = values["anti-slop"]
   ? resolve(values["anti-slop"])
   : ANTI_SLOP_DEFAULT;
-const antiSlop = await readFile(antiSlopPath, "utf8");
+let antiSlop: string;
+try {
+  antiSlop = await readFile(antiSlopPath, "utf8");
+} catch (e) {
+  console.error(`无法读取 anti-slop 词表 ${antiSlopPath}: ${(e as NodeJS.ErrnoException).message}`);
+  process.exit(1);
+}
 
 /**
  * Convert the real anti-slop-zh.md format (code-fenced word-per-line for Tier 1/2,
@@ -77,7 +89,7 @@ let sceneError: string | null = null;
 try {
   scenes = parseScenes(ch);
 } catch (e) {
-  sceneError = (e as Error).message;
+  sceneError = e instanceof Error ? e.message : String(e);
   scenes = [];
 }
 
@@ -92,12 +104,14 @@ const wordCount = ch
   .replace(/<!--[^]*?-->/g, "")
   .replace(/\s/g, "").length;
 
-const passes =
-  slopByTier[1] === 0 &&
-  slopByTier[2] <= 3 &&
-  patternHits.length === 0 &&
-  sceneError === null &&
-  scenes.length >= 2;
+const failures: string[] = [];
+if (slopByTier[1] > 0) failures.push(`tier1_slop=${slopByTier[1]}`);
+if (slopByTier[2] > 3) failures.push(`tier2_slop=${slopByTier[2]} (max 3)`);
+if (patternHits.length > 0) failures.push(`pattern_hits=${patternHits.length}`);
+if (sceneError !== null) failures.push(`scene_parse_error`);
+if (scenes.length < 2) failures.push(`scene_count=${scenes.length} (min 2)`);
+
+const passes = failures.length === 0;
 
 const report = {
   chapter_path: chapterPath,
@@ -108,6 +122,7 @@ const report = {
   slop_detail: slopHits,
   pattern_hits: patternHits,
   mechanical_pass: passes,
+  failures,
   judge_pending: true,
 };
 
