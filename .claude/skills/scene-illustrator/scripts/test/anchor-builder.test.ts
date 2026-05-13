@@ -32,4 +32,17 @@ describe("validateAnchor", () => {
     const long = Array(30).fill("word").join(" ");
     expect(() => validateAnchor(long)).toThrow(/token/);
   });
+
+  it("不被子串污染（silverware/blindfold 不算颜色或特征）", () => {
+    // 仅靠子串拼凑出"颜色+特征"两类的伪锚定，应该被拒
+    expect(() => validateAnchor("a silverware blindfold maker")).toThrow(
+      /三选二/,
+    );
+  });
+
+  it("CRLF 输入也能正常解析 characters.md", () => {
+    const crlf = `---\r\ncount: 1\r\n---\r\n\r\n## 林晚\r\n- appearance: long silver hair, dark green robe, ribbon\r\n`;
+    const map = buildAnchors(crlf);
+    expect(map.get("林晚")).toContain("silver hair");
+  });
 });

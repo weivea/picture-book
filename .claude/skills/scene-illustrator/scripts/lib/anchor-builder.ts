@@ -1,10 +1,14 @@
 // .claude/skills/scene-illustrator/scripts/lib/anchor-builder.ts
 
+// 锚定提示词表。匹配采用词边界（\b）以避免子串污染：
+//   "silver" 不会误中 "silvery/silverware"，"blind" 不会误中 "blinding/blindfold"。
+// 同源词只保留一个最短形：
+//   "milky-white" 已被 "milky" + "white" 覆盖；"golden" 含 "gold" 词根但词形不同，保留。
 const COLOR_HINTS = [
   "silver", "gold", "golden", "black", "white", "red", "blue", "green",
   "grey", "gray", "auburn", "blonde", "navy", "ivory", "scarlet",
   "violet", "purple", "amber", "pink", "brown", "crimson", "jade",
-  "milky", "milky-white",
+  "milky",
 ];
 const GARMENT_HINTS = [
   "robe", "coat", "dress", "shirt", "armor", "cloak", "uniform",
@@ -17,6 +21,15 @@ const FEATURE_HINTS = [
 
 const CN_RE = /[一-鿿]/;
 
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function hasHint(text: string, hints: readonly string[]): boolean {
+  // 用 \b 词边界避免 "silver" 命中 "silverware"、"blind" 命中 "blindfold" 等子串污染
+  return hints.some((h) => new RegExp(`\\b${escapeRe(h)}\\b`).test(text));
+}
+
 export function validateAnchor(anchor: string): void {
   if (CN_RE.test(anchor)) throw new Error(`anchor 必须英文，实际: "${anchor}"`);
   const tokens = anchor.split(/\s+/).filter(Boolean);
@@ -24,9 +37,9 @@ export function validateAnchor(anchor: string): void {
     throw new Error(`anchor 超过 25 token (${tokens.length})`);
   const lower = anchor.toLowerCase();
   let categories = 0;
-  if (COLOR_HINTS.some((c) => lower.includes(c))) categories++;
-  if (GARMENT_HINTS.some((g) => lower.includes(g))) categories++;
-  if (FEATURE_HINTS.some((f) => lower.includes(f))) categories++;
+  if (hasHint(lower, COLOR_HINTS)) categories++;
+  if (hasHint(lower, GARMENT_HINTS)) categories++;
+  if (hasHint(lower, FEATURE_HINTS)) categories++;
   if (categories < 2)
     throw new Error(
       `anchor 不满足"三选二"（颜色/服饰/特征），仅命中 ${categories} 类: "${anchor}"`,
@@ -34,8 +47,10 @@ export function validateAnchor(anchor: string): void {
 }
 
 export function buildAnchors(charactersMd: string): Map<string, string> {
-  const fmMatch = charactersMd.match(/^---\n[\s\S]*?\n---\n/);
-  const body = fmMatch ? charactersMd.slice(fmMatch[0].length) : charactersMd;
+  // 与 slop/pattern/scene-marker 保持一致：CRLF 归一化
+  const normalized = charactersMd.replace(/\r\n/g, "\n");
+  const fmMatch = normalized.match(/^---\n[\s\S]*?\n---\n/);
+  const body = fmMatch ? normalized.slice(fmMatch[0].length) : normalized;
   const blocks = body.split(/^## /m).slice(1);
   const map = new Map<string, string>();
   for (const block of blocks) {
