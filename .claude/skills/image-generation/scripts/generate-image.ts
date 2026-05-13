@@ -339,10 +339,14 @@ async function callEditsApi(refPaths: string[]): Promise<Buffer> {
 
   const res = await fetchWithRetry(
     () => {
-      // form 必须每次重建，因为部分 server 会消费 stream
+      // form 必须每次重建，因为部分 server 会消费 stream。
+      // 字段名固定为 "image[]"：Azure gpt-image-2 部署拒绝重复的 "image" 字段
+      // （会返回 duplicate_parameter 400），错误消息明确建议改用 image[] 数组语法。
+      // 这跟 Microsoft Learn 文档（描述 gpt-image-1 系列用重复 "image" 字段）不一致，
+      // 但 Azure 实际行为如此；对单 ref 也无害。
       const form = new FormData();
       for (const r of refs) {
-        form.append("image", new Blob([r.buf], { type: r.mime }), r.name);
+        form.append("image[]", new Blob([r.buf], { type: r.mime }), r.name);
       }
       form.append("prompt", prompt);
       form.append("size", apiSize);

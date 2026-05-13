@@ -1,6 +1,9 @@
-// 验证：3 张 --ref 时 multipart body 含 3 个 name="image" 字段，
+// 验证：3 张 --ref 时 multipart body 含 3 个 name="image[]" 字段，
 // 文件名为各路径的 basename，顺序与 CLI 传入顺序一致；
 // 默认带 input_fidelity=high；off 时不带。
+//
+// 字段名为 "image[]"（数组语法）：Azure gpt-image-2 部署拒绝重复的 "image" 字段，
+// 错误消息明确建议 image[]。详见 callEditsApi 注释。
 
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { rm, writeFile } from "node:fs/promises";
@@ -28,7 +31,15 @@ function startCapture(): { server: ReturnType<typeof Bun.serve>; captured: Captu
     port: 0,
     async fetch(req) {
       const form = await req.formData();
-      const images = form.getAll("image") as File[];
+      const images = form.getAll("image[]") as File[];
+      // 防回归：确保不会同时有 image（不带方括号）字段——Azure gpt-image-2 拒绝该名字
+      const legacyImages = form.getAll("image") as File[];
+      if (legacyImages.length > 0) {
+        return new Response(
+          JSON.stringify({ error: "test: legacy 'image' field appeared" }),
+          { status: 500 },
+        );
+      }
       captured.push({
         imageNames: images.map((f) => f.name),
         fidelity: (form.get("input_fidelity") as string | null) ?? null,
@@ -77,7 +88,7 @@ async function runScript(args: string[], extraEnv: Record<string, string>) {
 }
 
 describe("multi-ref multipart body", () => {
-  it("3 张 --ref → 3 个 image 字段，filename = basename，顺序 = 输入顺序", async () => {
+  it("3 张 --ref → 3 个 image[] 字段，filename = basename，顺序 = 输入顺序", async () => {
     const { server, captured } = startCapture();
     const editsEndpoint = `http://localhost:${server.port}/edits`;
     const out = join(workDir, "out.png");

@@ -177,6 +177,12 @@ bun run .claude/skills/image-generation/scripts/generate-image.ts \
 | 旧 meta.json 文件字段名不匹配新代码 | meta 是写出物，下次跑覆盖；不读旧字段 → 无破坏 |
 | 多 ref 大幅增加 multipart body 体积 → 上传超时 | 单 ref 50 MB 校验 + 现有重试机制兜底；portrait 通常 < 1 MB，6 张 < 6 MB 远低于阈值 |
 
+> **实施记录（2026-05-13 落地后修正）**：§2.2 / §7 都基于 Microsoft Learn 文档假设字段名为
+> 重复的 `image`，但真实 Azure `gpt-image-2-1` 部署对此返回 `duplicate_parameter` 400，
+> 错误消息里直接建议改用 `image[]`。落地实现按 Azure 实际行为走，字段名为 `image[]`
+> （数组语法），单 ref 时也用 `image[]`，无副作用。决策表里"字段名 = `image`"那条
+> 留作历史决策依据；以本节落地记录为准。
+
 ## 8. 实施顺序提示（供后续 writing-plans 参考）
 
 1. image-generation：放开上限 + multipart 多 image + input_fidelity + magic 校验 + HINT

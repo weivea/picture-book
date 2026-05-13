@@ -70,9 +70,14 @@ description: |
 
 ## Reference-image Mode（image-to-image）
 
-传入 `--ref <path>` 时切到 Azure 的 `/edits` 端点，按 Microsoft 文档把每张参考图作为
-**重复的 `image` multipart 字段**（不是 `image[]`，不是 JSON 数组）。
+传入 `--ref <path>` 时切到 Azure 的 `/edits` 端点，把每张参考图作为
+**`image[]` multipart 字段**（数组语法；同一个名字 `image[]` 重复 N 次）。
 用于"角色立绘 + prompt 描述场景"实现跨场景视觉一致性（scene-illustrator 调用范式）。
+
+> 字段名为什么是 `image[]` 而不是 `image`：Microsoft Learn 文档（针对 `gpt-image-1` 系列）
+> 描述的是重复 `image` 字段，但 Azure 的 `gpt-image-2` 部署对此返回
+> `duplicate_parameter` 400，错误消息明确指引使用 `image[]`。本 skill 按 Azure 实际行为走，
+> 单 ref 时也用 `image[]`，对单 ref 无害。
 
 `AZURE_IMAGE_EDITS_ENDPOINT` 见上面 Prerequisites 表。
 
