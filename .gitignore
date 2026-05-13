@@ -46,3 +46,6 @@ generated/
 
 # Python
 .venv/
+
+# 第三方参考仓库（仅本地阅读，不入版本库）
+reference/
