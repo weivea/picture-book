@@ -109,7 +109,7 @@ picture-book-creator 阶段 6.2 默认把每页 prompt 写入 `output/<topic>/pr
 
 | stderr 关键字 | 触发条件 | 调用方处置建议 |
 |---|---|---|
-| `AZURE_API_KEY 未设置` | 环境变量缺失 | 让用户 `export AZURE_API_KEY=...`，不要重试 |
+| `AZURE_API_KEY 未设置` | 环境变量缺失 | 让用户在项目根 `.env` 中配置，或按当前 shell 设置环境变量，不要重试 |
 | `API 返回 429` | 限流 | 退避 2-5s 重试 |
 | `API 返回 5xx` | 服务端错误 | 退避重试 1-2 次 |
 | `API 返回 4xx` (非 429) | prompt 被审核拒绝 / 参数非法 | 调整 prompt 后重试，否则跳过本页 |
@@ -119,7 +119,7 @@ picture-book-creator 阶段 6.2 默认把每页 prompt 写入 `output/<topic>/pr
 
 ## Common Mistakes
 
-- **忘记 `AZURE_API_KEY`**：脚本会立即报错；推荐在项目根目录 `.env` 中配置，或在启动 Codex Desktop App 前把环境变量导出到父 shell
+- **忘记 `AZURE_API_KEY`**：脚本会立即报错；推荐在项目根目录 `.env` 中配置，或在启动 Codex Desktop App 前把环境变量设置到父 shell
 - **prompt 含未转义的 `'` 或 `"`**：用 stdin / heredoc 而不是 `--prompt "..."` 即可避免
 - **传 `--ratio 16:9`**：会 exit 1。本 skill MVP 只支持 1:1
 - **期望文件大小验证**：本 skill 只判断 API 是否成功；调用方（如 picture-book-creator 阶段 6.3）

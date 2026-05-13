@@ -30,9 +30,9 @@ AI 驱动的儿童绘本创作工具。基于 Codex Desktop App skills，把一�
 ## 环境要求
 
 - [Bun](https://bun.sh/) ≥ 1.0
-- Codex Desktop App
+- Codex Desktop App（Windows / macOS）
 - Azure OpenAI 资源，已部署 `gpt-image-2` 模型
-- Python 3（仅有声绘本 / TTS 需要）
+- Python 3（仅有声绘本 / TTS 需要；`setup:venv` 会自动创建跨平台 `.venv`）
 
 ## 快速开始
 
@@ -48,10 +48,19 @@ bun run setup:venv
 
 ### 2. 配置环境变量
 
+macOS / Git Bash / WSL:
+
 ```bash
 cp .env.example .env
-# 编辑 .env，填入真实的 Azure key 与 endpoint
 ```
+
+Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+然后编辑 `.env`，填入真实的 Azure key 与 endpoint。
 
 需要的变量：
 
@@ -68,7 +77,12 @@ cp .env.example .env
 
 `picture-book-creator` skill 会按阶段引导你确认主题、角色、风格，生成每页 prompt 后通过本项目的批量脚本调用 `image-generation` 渲染所有页面，输出到 `output/<book-slug>/`。
 
-如果桌面 app 没有自动发现项目内的 `.codex/skills`，把 `.codex/skills/` 下的 4 个 skill 目录复制到 `%USERPROFILE%\.codex\skills\` 后重启 Codex Desktop App。
+项目内的 `.codex/skills` 是唯一维护的 skill 来源。如果桌面 app 没有自动发现它们，把 `.codex/skills/` 下的 4 个 skill 目录复制到 Codex 用户 skills 目录后重启 Codex Desktop App：
+
+| 系统 | 目标目录 |
+| --- | --- |
+| macOS | `~/.codex/skills/` |
+| Windows | `%USERPROFILE%\.codex\skills\` |
 
 ### 4. 手动调用脚本（可选）
 
@@ -119,7 +133,15 @@ bun run setup:venv
 
 默认使用 `https://pypi.tuna.tsinghua.edu.cn/simple` 安装 `edge-tts`。如需切换源：
 
+macOS / zsh:
+
 ```bash
+PIP_INDEX_URL="https://mirrors.aliyun.com/pypi/simple/" bun run setup:venv
+```
+
+Windows PowerShell:
+
+```powershell
 $env:PIP_INDEX_URL="https://mirrors.aliyun.com/pypi/simple/"
 bun run setup:venv
 ```

@@ -32,6 +32,9 @@ description: |
 bun run setup:venv
 ```
 
+`setup:venv` 支持 Windows 与 macOS：运行时会创建 `.venv`，后续脚本会从当前目录向上查找
+`.venv/Scripts/python.exe`、`.venv/bin/python` 或 `.venv/bin/python3`。
+
 ## Quick Reference
 
 ```bash

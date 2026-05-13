@@ -6,7 +6,7 @@
  *
  * 用法：
  *   # 方式 1：项目根目录放置 .env，写入 AZURE_API_KEY=...（推荐）
- *   # 方式 2：在当前 shell 显式 export AZURE_API_KEY=...
+ *   # 方式 2：在当前 shell 显式设置 AZURE_API_KEY
  *   bun run .codex/skills/image-generation/scripts/generate-image.ts \
  *     --output output/<topic>/0.png \
  *     [--prompt "<text>" | (从 stdin 读取)] \
@@ -93,7 +93,7 @@ const apiKey = process.env.AZURE_API_KEY;
 if (!apiKey) {
   die(
     "AZURE_API_KEY 未设置。请在项目根目录的 `.env` 中填入 AZURE_API_KEY=<your-key>，" +
-      "或在当前 shell 执行 `export AZURE_API_KEY=\"<your-key>\"` 后再调用。"
+      "或在当前 shell 设置 AZURE_API_KEY 后再调用。"
   );
 }
 const endpoint = process.env.AZURE_IMAGE_ENDPOINT ?? DEFAULT_ENDPOINT;
