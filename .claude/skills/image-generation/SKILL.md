@@ -5,9 +5,9 @@ description: |
   gpt-image-2 deployment. Triggered by picture-book-creator (one call per page)
   or any task that says "generate image", "make a picture", "render this prompt
   to PNG". One invocation = exactly one image; the skill enforces a global
-  cap of 2 concurrent API calls across all processes (override via
-  `IMAGE_GEN_MAX_CONCURRENCY`); batching and retries remain the caller's
-  responsibility. Requires AZURE_API_KEY env var.
+  rate limit (default 2 RPM = one request per ~35 s, override via
+  `IMAGE_GEN_MIN_INTERVAL_MS`) and retries 429/5xx up to 3 times with
+  Retry-After-aware backoff. Requires AZURE_API_KEY env var.
 ---
 
 # Image Generation
@@ -24,19 +24,22 @@ description: |
 ## When NOT to Use
 
 - **掩码 inpainting**：本 skill `/edits` 端点支持参考图（`--ref`），但不支持 `--mask` 区域编辑
-- **绕过并发上限**：本 skill 强制最多 2 个实例同时调 API（跨进程信号量），见下面"并发上限"
-- **失败自动重试**：本 skill 失败即 `exit 1`。调用方决定是否重试
+- **绕过速率上限**：本 skill 强制全局速率门（默认 2 RPM = 35s 间隔，跨进程信号量），见下面"速率上限"
+- **无限重试**：429/5xx 内置 3 次退避重试；其他 4xx 立即 exit 1，调用方决定是否再试
 
-## 并发上限（自动）
+## 速率上限（自动）
 
-无论从几个 shell / subagent / skill 同时调本脚本，**全局最多只有 2 个实例**真正在打 Azure API；多余的实例会**等待**前面的释放后再继续，不会失败。这是为了规避 Azure gpt-image-2 的速率限制（通常 RPM 较紧）。
+无论从几个 shell / subagent / skill 同时调本脚本，**全局两次请求最少间隔 35 秒**（对应 Azure 2 RPM 硬上限），且默认**全局并发 = 1**。多余的实例会**等待**前面的请求达到 35s 后再继续，不会失败。
 
-机制：`/tmp/image-gen-sema/` 下的 `slot-N.lock` 目录基于 `mkdir` 的原子性做跨进程信号量。进程崩溃留下的 lock 由下一次 acquire 自动回收（`kill -0` 判活 + 10 min mtime 兜底）。
+429 / 5xx 由脚本内部退避重试（最多 3 次），优先读 `Retry-After` 响应头，否则按 30 / 60 / 120 秒指数退避。重试期间持续持有 rate-gate 槽位，不会让后续请求挤进 60s 窗口。
+
+机制：`/tmp/image-gen-sema/` 下的 `slot-N.lock` 目录基于 `mkdir` 的原子性做并发信号量；同目录的 `last-start.txt` 记录最近一次请求时刻，新请求拿到 slot 后必须等到 `now - last ≥ MIN_INTERVAL_MS`。进程崩溃留下的 lock 由下一次 acquire 自动回收（`kill -0` 判活 + 10 min mtime 兜底）。
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
-| `IMAGE_GEN_MAX_CONCURRENCY` | `2` | 上限。整数 1..16。需要更激进的并发可在 `.env` 里调高。 |
-| `IMAGE_GEN_SEMA_DIR` | `/tmp/image-gen-sema` | 信号量目录（一般不用改；测试时会指向临时目录） |
+| `IMAGE_GEN_MIN_INTERVAL_MS` | `35000` | 两次请求最小间隔，毫秒。Azure 2 RPM ⇒ 30s 边界 + 5s buffer。`0` = 禁用速率门。范围 `0..600000` |
+| `IMAGE_GEN_MAX_CONCURRENCY` | `1` | 并发上限。整数 `1..16`。**Azure 2 RPM 下设 >1 没有收益**（仍受 35s 间隔约束）；只有当部署 RPM 提升后才有意义 |
+| `IMAGE_GEN_SEMA_DIR` | `/tmp/image-gen-sema` | 信号量根目录（一般不用改；测试时会指向临时目录） |
 
 ## Prerequisites
 
@@ -48,7 +51,12 @@ description: |
 | 变量 | 必需 | 说明 |
 |---|---|---|
 | `AZURE_API_KEY` | ✓ | Azure 部署 key |
-| `AZURE_IMAGE_ENDPOINT` | ✗ | 完整生成端点 URL，覆盖默认值（更换部署/区域时用） |
+| `AZURE_IMAGE_ENDPOINT` | 推荐 | 完整 `/generations` 端点 URL；不设走 die |
+| `AZURE_IMAGE_EDITS_ENDPOINT` | ✗ | 完整 `/edits` 端点；不设则从 `AZURE_IMAGE_ENDPOINT` 把 `/generations` 替换为 `/edits` 自动推导。仅 `--ref` 模式需要 |
+| `IMAGE_GEN_MIN_INTERVAL_MS` | ✗ | 速率门最小间隔，毫秒。默认 `35000`（2 RPM 安全值），范围 `0..600000` |
+| `IMAGE_GEN_MAX_CONCURRENCY` | ✗ | 并发上限。默认 `1`，范围 `1..16` |
+| `IMAGE_GEN_SEMA_DIR` | ✗ | 信号量目录。默认 `/tmp/image-gen-sema` |
+| `SKIP_PNG_COMPRESS` | ✗ | `1` = 跳过 pngquant + oxipng 压缩，直接落盘原图。调试 / 对照用 |
 
 **推荐做法**：复制项目根目录的 `.env.example` 为 `.env`，填入真实 key。
 `.env` 已被 `.gitignore` 屏蔽，不会泄漏。
@@ -64,12 +72,10 @@ description: |
 传入 `--ref <path>` 时切到 Azure gpt-image-2 的 `/edits` 端点，把参考图作为 multipart body 的 `image` 字段。
 用于"角色立绘 + prompt 描述场景"实现跨场景视觉一致性（scene-illustrator 调用范式）。
 
-| 变量 | 必需 | 说明 |
-|---|---|---|
-| `AZURE_IMAGE_EDITS_ENDPOINT` | ✗ | 完整 `/edits` 端点 URL；不设则从 `AZURE_IMAGE_ENDPOINT` 自动替换 `/generations` → `/edits` |
+`AZURE_IMAGE_EDITS_ENDPOINT` 见上面 Prerequisites 表。
 
 **当前限制：**
-- 多 ref 只生效第 1 张（其他角色请在 prompt 文本中描述）
+- **只接受 1 张 `--ref`**，传多张直接 `exit 1`（其他参考角色请在 prompt 文本中描述）
 - 不支持 `--mask`（区域编辑场景目前不需要）
 
 ## Quick Reference
@@ -77,25 +83,19 @@ description: |
 ```bash
 bun run .claude/skills/image-generation/scripts/generate-image.ts \
   --output <png 路径> \
-  [--prompt "<text>"]   # 不传则从 stdin 读取
+  [--prompt "<text>"]   # 不传则从 stdin 读取，长度 ≤ 4000 字符
   [--ratio 1:1]         # 仅支持 1:1，传其他值会 exit 1
   [--size 1024x1024]    # MVP 内部固定 1024x1024，传其他值会 stderr 警告但继续
   [--quality high]      # low | medium | high，默认 high
-  [--ref <path>]        # 可重复（最多 3 张）。传入则走 /edits 端点做 image-to-image；本版本只生效第 1 张
+  [--ref <path>]        # 传入则走 /edits 端点做 image-to-image。仅支持 1 张
 ```
-
-**环境变量（除 `AZURE_API_KEY` / `AZURE_IMAGE_ENDPOINT` 外）：**
-
-| 变量 | 含义 |
-|---|---|
-| `SKIP_PNG_COMPRESS=1` | 跳过 pngquant + oxipng 压缩，直接落盘原图。调试 / 对照用。 |
 
 退出码语义：
 
 | 退出码 | 含义 | 调用方应当 |
 |---|---|---|
 | 0 | 成功，PNG 已写入 `--output` | 继续 |
-| 1 | 任意错误（缺 key / 参数非法 / API 报错 / 写盘失败） | 读 stderr 判断是否重试 |
+| 1 | 任意错误（缺 key / 参数非法 / 重试 3 次后仍 429-5xx / 4xx 拒绝 / 写盘失败） | 读 stderr 判断是否上层重试或跳过 |
 
 ## Invocation Patterns
 
@@ -138,19 +138,25 @@ picture-book-creator 阶段 6.2 以 `context: fork` 形式派发本 skill，
 | stderr 关键字 | 触发条件 | 调用方处置建议 |
 |---|---|---|
 | `AZURE_API_KEY 未设置` | 环境变量缺失 | 让用户 `export AZURE_API_KEY=...`，不要重试 |
-| `API 返回 429` | 限流 | 退避 2-5s 重试 |
-| `API 返回 5xx` | 服务端错误 | 退避重试 1-2 次 |
-| `API 返回 4xx` (非 429) | prompt 被审核拒绝 / 参数非法 | 调整 prompt 后重试，否则跳过本页 |
-| `网络错误` | DNS / 连接超时 | 重试 |
+| `Prompt 长度 ... 超过 4000` | prompt 过长 | 精简 prompt，不要重试 |
+| `--ref 当前仅支持 1 张` | 传了 ≥2 张 `--ref` | 调用方修复参数，不要重试 |
+| `API 返回 429`（出现在 stderr 末尾，标记 attempt 4/4） | 内置 3 次退避重试仍被限流 | 等待几分钟再上层重试，或检查是否多个进程绕过 rate-gate |
+| `API 返回 5xx`（attempt 4/4） | 服务端持续故障 | 上层退避后重试 1-2 次 |
+| `API 返回 4xx`（非 429） | prompt 被审核拒绝 / 参数非法 | 调整 prompt 后重试，否则跳过本页 |
+| `网络错误`（attempt 4/4） | DNS / 连接超时持续失败 | 上层重试或检查网络 |
 | `Prompt 为空` | 调用方没传 prompt | 修复调用代码，不要重试 |
 | `WARN: 压缩失败` | pngquant/oxipng 子进程失败或超时 | 不是错误，exit 0；该图未压缩但可用，可忽略 |
+| `WARN: ... 后重试` | 中间一次 429/5xx，正在退避 | 不是错误，会自动重试；只是一行日志 |
 
 ## Common Mistakes
 
 - **忘记 `export AZURE_API_KEY`**：脚本会立即报错，但 fork subagent 继承的是父进程环境变量，
   务必在父 shell 里 export 后再启动 Claude Code
 - **prompt 含未转义的 `'` 或 `"`**：用 stdin / heredoc 而不是 `--prompt "..."` 即可避免
+- **prompt 长度超 4000**：脚本立即 die，不会发请求；上层准备 prompt 时务必检查长度
 - **传 `--ratio 16:9`**：会 exit 1。本 skill MVP 只支持 1:1
+- **传多张 `--ref`**：会 exit 1（语义陷阱：旧版本会静默丢弃，新版本严格 die）
+- **依赖跨进程 RPM 时不在同一信号量目录**：所有调用方必须共享 `IMAGE_GEN_SEMA_DIR`，否则速率门各算各的
 - **期望文件大小验证**：本 skill 只判断 API 是否成功；调用方（如 picture-book-creator 阶段 6.3）
   自行检查 `>100KB`
 

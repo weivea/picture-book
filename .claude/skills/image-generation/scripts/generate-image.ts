@@ -30,10 +30,15 @@ import { mkdir, readFile } from "fs/promises";
 import { existsSync } from "fs";
 import { dirname, resolve, join } from "path";
 import { compressPngInPlace, type CompressResult } from "./compress-png";
-import { acquireSlot } from "./lib/concurrency-gate";
+import { acquireSlot, sleep } from "./lib/concurrency-gate";
 
 const DEFAULT_ENDPOINT =
   "https://<your-resource-name>.cognitiveservices.azure.com/openai/deployments/gpt-image-2/images/generations?api-version=2024-02-01";
+
+// 退避重试参数（仅对 429/5xx 生效）
+const MAX_RETRIES = 3;
+const FALLBACK_BACKOFF_MS = [30_000, 60_000, 120_000];
+const MAX_PROMPT_LEN = 4000;
 
 /**
  * 从 cwd 向上递归查找 `.env`，找到第一个就解析进 process.env。
@@ -143,8 +148,11 @@ for (const p of refPaths) {
     die(`--ref 文件不存在：${p}`);
   }
 }
-if (refPaths.length > 3) {
-  die(`--ref 最多支持 3 张参考图（收到 ${refPaths.length} 张）。多余的图请合成一张拼图后再传。`);
+if (refPaths.length > 1) {
+  die(
+    `--ref 当前仅支持 1 张参考图（收到 ${refPaths.length} 张）。其他参考角色请在 prompt 文本中描述。` +
+      `如未来需要多 ref，请在脚本扩展 callEditsApi 后放开此限制。`,
+  );
 }
 
 // --- 3. 取 prompt（参数优先，否则 stdin）---
@@ -161,12 +169,77 @@ const prompt = (values.prompt ?? (await readStdin())).trim();
 if (!prompt) {
   die("Prompt 为空。请用 --prompt 传入或通过 stdin 喂入文本。");
 }
+if (prompt.length > MAX_PROMPT_LEN) {
+  die(
+    `Prompt 长度 ${prompt.length} 超过 ${MAX_PROMPT_LEN} 字符上限。请精简后再调用。`,
+  );
+}
 
 // --- 4. 准备输出目录 ---
 const outputPath = resolve(values.output!);
 await mkdir(dirname(outputPath), { recursive: true });
 
-// --- 5a. 解析图像 API 响应（generate / edits 共用） ---
+// --- 5a. 解析 Retry-After 头（秒数或 HTTP-date）。失败 → null ---
+function parseRetryAfter(header: string | null): number | null {
+  if (!header) return null;
+  const trimmed = header.trim();
+  // 整数秒
+  if (/^\d+$/.test(trimmed)) {
+    const sec = parseInt(trimmed, 10);
+    return Number.isFinite(sec) && sec >= 0 ? sec * 1000 : null;
+  }
+  // HTTP-date
+  const ts = Date.parse(trimmed);
+  if (!Number.isNaN(ts)) {
+    const delta = ts - Date.now();
+    return delta > 0 ? delta : 0;
+  }
+  return null;
+}
+
+// --- 5b. 带退避重试的 fetch 包装。429/5xx → 退避后重试，最多 MAX_RETRIES 次 ---
+async function fetchWithRetry(
+  callOnce: () => Promise<Response>,
+  label: string,
+): Promise<Response> {
+  let lastRes: Response | null = null;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    let res: Response;
+    try {
+      res = await callOnce();
+    } catch (err) {
+      // 网络错误：也按 5xx 退避一次（DNS 抖动 / 连接 reset 常见）
+      if (attempt >= MAX_RETRIES) die(`网络错误：${(err as Error).message}`);
+      const wait = FALLBACK_BACKOFF_MS[attempt] ?? FALLBACK_BACKOFF_MS.at(-1)!;
+      console.error(
+        `[generate-image] ${label} 网络错误（attempt ${attempt + 1}/${MAX_RETRIES + 1}），${Math.round(wait / 1000)}s 后重试：${(err as Error).message}`,
+      );
+      await sleep(wait);
+      continue;
+    }
+
+    if (res.ok) return res;
+
+    // 非 ok：判断是否可重试
+    const retriable = res.status === 429 || res.status >= 500;
+    if (!retriable || attempt >= MAX_RETRIES) {
+      return res; // 交给 parseImageResponse 走 die
+    }
+    const retryAfterMs = parseRetryAfter(res.headers.get("Retry-After"));
+    const wait = retryAfterMs ?? (FALLBACK_BACKOFF_MS[attempt] ?? FALLBACK_BACKOFF_MS.at(-1)!);
+    console.error(
+      `[generate-image] ${label} API 返回 ${res.status}（attempt ${attempt + 1}/${MAX_RETRIES + 1}），${Math.round(wait / 1000)}s 后重试`,
+    );
+    // 必须读掉 body，否则 keep-alive 连接卡住
+    await res.text().catch(() => "");
+    lastRes = res;
+    await sleep(wait);
+  }
+  // 理论不可达：循环要么 return res，要么 die
+  return lastRes!;
+}
+
+// --- 5c. 解析图像 API 响应（generate / edits 共用） ---
 async function parseImageResponse(res: Response): Promise<Buffer> {
   if (!res.ok) {
     const text = await res.text().catch(() => "<no body>");
@@ -185,7 +258,7 @@ async function parseImageResponse(res: Response): Promise<Buffer> {
   return Buffer.from(b64, "base64");
 }
 
-// --- 5b. /generations 端点（无参考图） ---
+// --- 5d. /generations 端点（无参考图） ---
 async function callGenerateApi(): Promise<Buffer> {
   const body = {
     prompt,
@@ -194,23 +267,22 @@ async function callGenerateApi(): Promise<Buffer> {
     output_format: "png",
     n: 1,
   };
-  let res: Response;
-  try {
-    res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(body),
-    });
-  } catch (err) {
-    die(`网络错误：${(err as Error).message}`);
-  }
+  const res = await fetchWithRetry(
+    () =>
+      fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+      }),
+    "generations",
+  );
   return parseImageResponse(res);
 }
 
-// --- 5c. /edits 端点（有参考图） ---
+// --- 5e. /edits 端点（有参考图） ---
 function deriveEditsEndpoint(): string {
   const explicit = process.env.AZURE_IMAGE_EDITS_ENDPOINT;
   if (explicit) return explicit;
@@ -227,42 +299,38 @@ async function callEditsApi(refPath: string): Promise<Buffer> {
   const editsEndpoint = deriveEditsEndpoint();
   const refBuf = await readFile(refPath);
   const refBlob = new Blob([refBuf], { type: "image/png" });
-  const form = new FormData();
-  form.append("image", refBlob, "ref.png");
-  form.append("prompt", prompt);
-  form.append("size", apiSize);
-  form.append("quality", values.quality!);
-  form.append("output_format", "png");
-  form.append("n", "1");
-
-  let res: Response;
-  try {
-    res = await fetch(editsEndpoint, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` }, // 注意：不要设 Content-Type，让 fetch 自动加 boundary
-      body: form,
-    });
-  } catch (err) {
-    die(`网络错误：${(err as Error).message}`);
-  }
+  const res = await fetchWithRetry(
+    () => {
+      // form 必须每次重建，因为部分 server 会消费 stream
+      const form = new FormData();
+      form.append("image", refBlob, "ref.png");
+      form.append("prompt", prompt);
+      form.append("size", apiSize);
+      form.append("quality", values.quality!);
+      form.append("output_format", "png");
+      form.append("n", "1");
+      return fetch(editsEndpoint, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` }, // 注意：不要设 Content-Type，让 fetch 自动加 boundary
+        body: form,
+      });
+    },
+    "edits",
+  );
   return parseImageResponse(res);
 }
 
 // --- 5. 调 API（按是否有参考图路由）---
-// 全局并发上限由 concurrency-gate 强制（默认 2，IMAGE_GEN_MAX_CONCURRENCY 可调）。
-// 拿不到 slot 时会等待，不会失败。release 必须在 finally 里执行。
+// 速率门 + 并发上限由 concurrency-gate 强制（默认 1 并发 + 35s 间隔，对应 Azure 2 RPM）。
+// 等待时不会失败。429/5xx 在 fetchWithRetry 内部退避重试，期间持有 slot。
+// release 必须在 finally 里执行。
 const release = await acquireSlot();
 let buffer: Buffer;
 try {
   if (refPaths.length === 0) {
     buffer = await callGenerateApi();
   } else {
-    if (refPaths.length > 1) {
-      console.error(
-        `[generate-image] WARN: 收到 ${refPaths.length} 张 --ref，本版本只用第 1 张（${refPaths[0]}）走 /edits 端点；` +
-          `其他参考角色请在 prompt 文本中描述。`
-      );
-    }
+    // refPaths.length === 1 已由前面的校验保证
     buffer = await callEditsApi(refPaths[0]!);
   }
 } finally {

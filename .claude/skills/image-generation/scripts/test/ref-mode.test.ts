@@ -29,15 +29,15 @@ describe("--ref routing", () => {
     expect(res.stderr).toContain("--ref 文件不存在");
   });
 
-  it("rejects more than 3 --ref values", () => {
-    const out = "/tmp/test-out-3ref.png";
+  it("rejects more than 1 --ref values (一律 die)", () => {
+    const out = "/tmp/test-out-2ref.png";
     const res = spawnSync(
       "bun",
       [
         "run", SCRIPT,
         "--prompt", "x",
         "--output", out,
-        "--ref", REF, "--ref", REF, "--ref", REF, "--ref", REF,
+        "--ref", REF, "--ref", REF,
       ],
       {
         encoding: "utf-8",
@@ -50,6 +50,30 @@ describe("--ref routing", () => {
       }
     );
     expect(res.status).toBe(1);
-    expect(res.stderr).toContain("最多支持 3 张参考图");
+    expect(res.stderr).toContain("--ref 当前仅支持 1 张");
+  });
+
+  it("3 张 ref 也 die（哪怕 ≤ 旧的 3 张上限）", () => {
+    const out = "/tmp/test-out-3ref.png";
+    const res = spawnSync(
+      "bun",
+      [
+        "run", SCRIPT,
+        "--prompt", "x",
+        "--output", out,
+        "--ref", REF, "--ref", REF, "--ref", REF,
+      ],
+      {
+        encoding: "utf-8",
+        env: {
+          ...process.env,
+          AZURE_API_KEY: "fake",
+          AZURE_IMAGE_ENDPOINT:
+            "https://test.invalid/openai/deployments/x/images/generations?api-version=2024-02-01",
+        },
+      }
+    );
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain("--ref 当前仅支持 1 张");
   });
 });
