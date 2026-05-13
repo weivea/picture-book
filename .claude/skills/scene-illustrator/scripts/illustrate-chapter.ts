@@ -52,6 +52,14 @@ const style: StyleInfo = {
   promptPrefix: extractField(styleMd, "promptPrefix"),
   negative: extractField(styleMd, "negative"),
 };
+if (!style.promptPrefix) {
+  console.error("style.md 缺失或空 '# promptPrefix' 段（请检查 init-foundation 输出）");
+  process.exit(1);
+}
+if (!style.negative) {
+  console.error("style.md 缺失或空 '# negative' 段（请检查 init-foundation 输出）");
+  process.exit(1);
+}
 
 // 2. portraits Phase
 const portraitsDir = join(outputDir, "portraits");
