@@ -67,6 +67,8 @@ const portraitsDir = join(outputDir, "portraits");
 await mkdir(portraitsDir, { recursive: true });
 const portraitAudit = await audit(anchors, portraitsDir);
 
+// 测试钩子：通过 IMAGE_GEN_SCRIPT 环境变量替换 image-generation 脚本路径，
+// 让集成测试能 stub 掉真实 Azure 调用。生产环境无需设置；保持默认即可。
 const IMAGE_GEN_SCRIPT =
   process.env.IMAGE_GEN_SCRIPT ??
   ".claude/skills/image-generation/scripts/generate-image.ts";
