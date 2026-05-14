@@ -47,7 +47,7 @@ series-output/<slug>/
 
 - 合订 title 默认 `"<series-meta.title> · <range 描述>"`，例如
   `"小熊面包房的故事 · 第一季"`、`"小熊面包房的故事 · 全集"`
-- author 沿用 `series-meta`
+- author 沿用 `generate-epub.ts` 的默认值（"AI Picture Book Creator"），或用户在 Step 0 显式提供
 - lang 沿用 `series-meta.language`
 - 输出路径默认 `series-output/<slug>/omnibus/<slug>-<range-slug>.epub`
   - range-slug：`s1` → `s1`；`全部` → `all`；显式列表 → `vN1-vN2-...`
