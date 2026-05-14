@@ -58,14 +58,20 @@ export async function loadVolumeContext(seriesRoot: string, volumeId: string): P
     throw new Error(`unrecognized volume id "${volumeId}" (expected sNvM or standalone-NNN)`);
   }
 
-  // Load patch if present.
+  // Load patch if present. `stat` is used purely as an existence probe — only ENOENT
+  // is treated as "no patch". Any other stat error, and any readFile/parsePatch error,
+  // must propagate.
   let patch: Map<string, string> | null = null;
   const patchPath = join(seriesRoot, "volumes", volumeId, "characters-patch.md");
+  let patchExists = true;
   try {
     await stat(patchPath);
+  } catch (err: any) {
+    if (err?.code === "ENOENT") patchExists = false;
+    else throw err;
+  }
+  if (patchExists) {
     patch = parsePatch(await readFile(patchPath, "utf-8"));
-  } catch {
-    // no patch
   }
 
   return { seriesRoot, volumeId, meta, world, style, characters, season, outlineEntry, patch };
@@ -74,8 +80,9 @@ export async function loadVolumeContext(seriesRoot: string, volumeId: string): P
 async function readFileOrEmpty(path: string): Promise<string> {
   try {
     return await readFile(path, "utf-8");
-  } catch {
-    return "";
+  } catch (err: any) {
+    if (err?.code === "ENOENT") return "";
+    throw err;
   }
 }
 
@@ -87,9 +94,8 @@ function parseCharacters(md: string): Map<string, CharacterCard> {
     const head = sec.match(/^## (.+)$/m);
     if (!head) continue;
     const name = head[1]!.trim();
-    if (name === "角色") continue; // top-level "# 角色" already split off
     const anchor = field(sec, "prompt_anchor");
-    if (!anchor) continue; // must have anchor to be usable
+    if (!anchor) throw new Error(`character "${name}" missing required prompt_anchor in characters.md`);
     out.set(name, {
       name,
       prompt_anchor: anchor,
