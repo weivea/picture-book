@@ -44,6 +44,16 @@ if (values.omnibus) {
   }
   const seriesRoot = resolve(values["series-root"]!);
   const volumeIds = values.volumes!.split(",").map((s) => s.trim()).filter(Boolean);
+  if (volumeIds.length === 0) {
+    console.error("--volumes must list at least one volume id");
+    process.exit(1);
+  }
+  const ID_RE = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+  const badIds = volumeIds.filter((id) => !ID_RE.test(id));
+  if (badIds.length > 0) {
+    console.error(`Invalid volume id(s): ${badIds.join(", ")}. Volume ids must match ${ID_RE}`);
+    process.exit(1);
+  }
   const out = values.output ?? join(seriesRoot, "omnibus", `${values.title}.epub`);
   await buildOmnibusEpub({
     seriesRoot, volumeIds, title: values.title!, author: values.author!,
@@ -308,7 +318,6 @@ async function buildOmnibusEpub(a: OmnibusArgs): Promise<void> {
       navInner.push(`        <li><a href="${xhtmlName}">第 ${n} 页</a></li>`);
     }
 
-    // Also register the cover image of the first volume (used by cover.xhtml) — but as cover-image, not duplicated as img.
     navGroups.push(`      <li>${escapeXml(v.id)}\n        <ol>\n${navInner.join("\n")}\n        </ol>\n      </li>`);
   }
 

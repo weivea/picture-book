@@ -153,4 +153,38 @@ describe("generate-epub.ts --omnibus", () => {
     expect(r.status).not.toBe(0);
     expect(r.stderr).toMatch(/sNOPE/);
   });
+
+  test("empty --volumes after trim/filter exits with helpful error", () => {
+    const result = spawnSync(
+      "bun",
+      [
+        "run", SCRIPT,
+        "--omnibus",
+        "--series-root", seriesRoot,
+        "--volumes", ",,,",
+        "--title", "Whatever",
+        "--output", join(root, "out.epub"),
+      ],
+      { encoding: "utf-8" }
+    );
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toMatch(/--volumes must list/);
+  });
+
+  test("volume id with unsafe characters is rejected before any file IO", () => {
+    const result = spawnSync(
+      "bun",
+      [
+        "run", SCRIPT,
+        "--omnibus",
+        "--series-root", seriesRoot,
+        "--volumes", "../etc",
+        "--title", "Whatever",
+        "--output", join(root, "out.epub"),
+      ],
+      { encoding: "utf-8" }
+    );
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toMatch(/Invalid volume id/);
+  });
 });
