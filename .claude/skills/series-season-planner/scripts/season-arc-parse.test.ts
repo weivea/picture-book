@@ -65,4 +65,37 @@ describe("parseSeasonArc", () => {
   test("rejects missing frontmatter", () => {
     expect(() => parseSeasonArc("# bare\n")).toThrow(/frontmatter/);
   });
+
+  test("rejects non-integer volumes_planned", () => {
+    const bad = SAMPLE.replace("volumes_planned: 6", "volumes_planned: many");
+    expect(() => parseSeasonArc(bad)).toThrow(/volumes_planned/);
+  });
+
+  test("rejects negative volumes_planned", () => {
+    const bad = SAMPLE.replace("volumes_planned: 6", "volumes_planned: -1");
+    expect(() => parseSeasonArc(bad)).toThrow(/volumes_planned/);
+  });
+
+  test("rejects empty required scalar (e.g. blank season_id)", () => {
+    const bad = SAMPLE.replace("season_id: s1", "season_id: ");
+    expect(() => parseSeasonArc(bad)).toThrow(/season_id/);
+  });
+
+  test("rejects key_turn_points item missing event field", () => {
+    // Replace the second KTP with a malformed one that has volume but no event
+    const bad = SAMPLE.replace(
+      "  - volume: s1v5\n    event: 邻居老猫给小熊送来祖传食谱",
+      "  - volume: s1v5"
+    );
+    expect(() => parseSeasonArc(bad)).toThrow(/key_turn_points/);
+  });
+
+  test("string-list bullet containing colon is preserved (not misparsed as object)", () => {
+    const withColon = SAMPLE.replace(
+      "  - 老猫先生（s1v5 出现）",
+      "  - 老猫先生: s1v5 出现的智者"
+    );
+    const a = parseSeasonArc(withColon);
+    expect(a.new_characters).toEqual(["老猫先生: s1v5 出现的智者"]);
+  });
 });

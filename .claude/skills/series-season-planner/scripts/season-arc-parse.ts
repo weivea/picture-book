@@ -17,6 +17,11 @@ export interface SeasonArc {
 }
 
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/;
+const REQUIRED_SCALARS = ["season_id", "title", "opening_state", "ending_state"] as const;
+
+// Known object-list keys; everything else is treated as string-list to avoid
+// silently dropping bullets like "- 角色名: 描述" that look like object items.
+const OBJECT_LIST_KEYS = new Set(["key_turn_points"]);
 
 export function parseSeasonArc(text: string): SeasonArc {
   const m = text.match(FRONTMATTER_RE);
@@ -24,10 +29,29 @@ export function parseSeasonArc(text: string): SeasonArc {
   const body = m[2] ?? "";
   const yaml = parseYaml(m[1]!);
 
+  for (const k of REQUIRED_SCALARS) {
+    const v = yaml.scalar[k];
+    if (v === undefined) {
+      throw new Error(`season-arc missing required field: ${k}`);
+    }
+    if (v.trim() === "") {
+      throw new Error(`season-arc required field "${k}" is empty`);
+    }
+  }
+
+  const planRaw = yaml.scalar.volumes_planned;
+  if (planRaw === undefined) {
+    throw new Error("season-arc missing required field: volumes_planned");
+  }
+  const plan = Number(planRaw.trim());
+  if (!Number.isInteger(plan) || plan <= 0) {
+    throw new Error(`season-arc volumes_planned must be a positive integer, got "${planRaw}"`);
+  }
+
   return {
     season_id: String(yaml.scalar.season_id ?? ""),
     title: String(yaml.scalar.title ?? ""),
-    volumes_planned: parseInt(String(yaml.scalar.volumes_planned ?? "0"), 10),
+    volumes_planned: plan,
     opening_state: String(yaml.scalar.opening_state ?? ""),
     ending_state: String(yaml.scalar.ending_state ?? ""),
     arc_locked: String(yaml.scalar.arc_locked ?? "false") === "true",
@@ -67,15 +91,13 @@ function parseYaml(yaml: string): ParsedYaml {
     if (head) {
       const key = head[1]!;
       i++;
-      // Decide string-list vs object-list by looking at the first item.
+      // empty list shortcut
       if (i >= lines.length || !/^\s+-\s+/.test(lines[i]!)) {
-        // empty list
         out.stringLists[key] = [];
         continue;
       }
-      const firstItem = lines[i]!.replace(/^\s+-\s+/, "");
-      if (firstItem.match(/^\w+:\s*.+/)) {
-        // object list
+      if (OBJECT_LIST_KEYS.has(key)) {
+        // object list (parse as KeyTurnPoint)
         const items: KeyTurnPoint[] = [];
         while (i < lines.length && /^\s+-\s+/.test(lines[i]!)) {
           const obj: Record<string, string> = {};
@@ -88,7 +110,10 @@ function parseYaml(yaml: string): ParsedYaml {
             obj[f[1]!] = f[2]!.trim();
             i++;
           }
-          items.push({ volume: obj.volume ?? "", event: obj.event ?? "" });
+          if (!obj.volume || !obj.event) {
+            throw new Error(`season-arc key_turn_points item missing volume or event: ${JSON.stringify(obj)}`);
+          }
+          items.push({ volume: obj.volume, event: obj.event });
         }
         out.objectLists[key] = items;
       } else {

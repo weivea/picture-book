@@ -38,7 +38,7 @@ series-output/<slug>/
 
 读 `state.json`（用 `series-bible-creator/scripts/lib/state.ts` 的 `loadState`）。
 - 报告：当前 Bible 版本、已存在的 season 列表（含 arc_locked 状态）、各册 phase 计数。
-- 若用户给的 season-id 已存在且 `arc_locked=true` → 询问是覆盖（生成 revision +1）还是退出。
+- 若用户给的 season-id 已存在且 `arc_locked=true` → 询问是覆盖（生成 `outline_revision = 当前值 + 1`）还是退出。
 
 ### Step 1 — 本季定位收集
 
@@ -98,11 +98,13 @@ series-output/<slug>/
       "volumes_planned": <n>,
       "arc_locked": true,
       "started_at": "<now ISO>",
-      "outline_revision": 1
+      "outline_revision": <prior outline_revision + 1, or 1 if first time>
     }
   }
 }
 ```
+
+> **Revision math**: 在 `updateState` 的 mutator 里读 `s.seasons[<id>]?.outline_revision ?? 0` 并 `+ 1`。首次为 1；二次覆盖为 2；以此类推。配合 Step 0 的"覆盖确认"prompt 使用。
 
 输出指引：
 ```
