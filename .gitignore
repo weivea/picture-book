@@ -43,6 +43,8 @@ generated/
 *.mobi
 *.pdf
 .env
+novel-output
+series-output
 
 # Python
 .venv/
