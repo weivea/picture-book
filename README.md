@@ -117,7 +117,7 @@ brew install epubcheck
   └─ Series Bible: world.md / characters.md / style.md / portraits/
      └─ 规划本季弧线（每季一次）
         └─ Season Arc + volumes-outline
-           └─ 生成单册（每册一次,可隔天/隔周/隔月）
+           └─ 生成单册（每册一次，可隔天 / 隔周 / 隔月）
               └─ script + 图 + 静态 EPUB + 自动有声 EPUB
               └─ 出合订本（按需）
                  └─ omnibus EPUB
@@ -125,12 +125,35 @@ brew install epubcheck
 
 ### 4 个 skill
 
-| Skill | 触发关键词 | 何时用 |
+| Skill | 触发关键词（说哪句都会被识别） | 何时用 |
 |---|---|---|
-| `series-bible-creator` | "建一个绘本系列"、"create series" | 一个系列只跑一次 |
-| `series-season-planner` | "规划第 N 季"、"plan season 2" | 每季跑一次 |
-| `series-volume-creator` | "做下一册"、"build volume 3" | 每册跑一次 |
-| `series-omnibus-packager` | "出第一季合订本"、"merge volumes" | 按需 |
+| `series-bible-creator` | "我想做一个连载绘本"、"建一个绘本系列"、"create a picture book series"、"design world bible" | 一个系列只跑一次（产出 bible/） |
+| `series-season-planner` | "规划第 N 季"、"列出本季要做的几册"、"plan season 2"、"design this season's arc" | 每季跑一次（产出 season-arc + outline） |
+| `series-volume-creator` | "做这个系列的下一册"、"出第 X 册"、"把 outline 第 N 册做出来"、"build volume 3" | 每册跑一次（产出 script + 图 + 静态/有声 EPUB） |
+| `series-omnibus-packager` | "出第一季合订本"、"把这几册合订"、"merge volumes 1-5 into one EPUB" | 按需（产出合订 EPUB） |
+
+### 典型工作流
+
+在 Claude Code 中，自然语言一路走到底，无需记 skill 名：
+
+```
+你：我想做一个关于小熊面包房的连载绘本，4-6 岁，治愈风。
+→ series-bible-creator 触发，引导你把世界观/角色/画风定下来，冻结成 bible/
+
+你：规划第一季，4 册。
+→ series-season-planner 触发，产出第一季弧线 + 4 册大纲
+
+你：开始做第一册。
+→ series-volume-creator 触发，写 script、并行生图、自动出静态 + 有声 EPUB
+
+…（隔几天）…
+
+你：做第二册。
+→ series-volume-creator 又跑一次，沿用 bible 里的 prompt_anchor / voice_profile
+
+你：第一季四册都做完了，出个合订本。
+→ series-omnibus-packager 触发，按 outline 顺序合并成一本 EPUB
+```
 
 ### 输出目录
 
@@ -168,6 +191,8 @@ series-output/<series-slug>/
 
 ### 手动调用合订脚本
 
+通常合订由 `series-omnibus-packager` skill 自动调度，无需手动跑。仅在脱离 Claude Code 想直接拼一本 EPUB 时使用：
+
 ```bash
 bun run epub-omnibus -- \
   --series-root series-output/<slug> \
@@ -176,7 +201,10 @@ bun run epub-omnibus -- \
   --lang zh
 ```
 
+可用的册 id 写在 `series-output/<slug>/state.json` 的 `volumes` 字段里（`phase: "packaged"` 的才能进合订）。
+
 ### 设计与实现文档
 
-- 设计 spec: `docs/superpowers/specs/2026-05-14-serial-picture-book-design.md`
-- 实施 plan: `docs/superpowers/plans/2026-05-14-serial-picture-book.md`
+- 设计 spec：`docs/superpowers/specs/2026-05-14-serial-picture-book-design.md`
+- 实施 plan：`docs/superpowers/plans/2026-05-14-serial-picture-book.md`
+- 各 skill 入口：`.claude/skills/series-{bible-creator,season-planner,volume-creator,omnibus-packager}/SKILL.md`
