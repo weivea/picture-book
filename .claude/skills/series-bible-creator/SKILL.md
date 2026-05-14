@@ -31,7 +31,7 @@ Volume Creator 的唯一事实来源。
 series-output/<slug>/
 ├── state.json                       ← 创建/更新 bible.frozen_at
 └── bible/
-    ├── series-meta.md               ← 系列卡片（schema 见 spec §4.3）
+    ├── series-meta.md               ← 系列卡片（schema 见 references/bible-templates.md）
     ├── world.md                     ← 复用 novel-output/.../world.md frontmatter
     ├── characters.md                ← 含 voice_profile + prompt_anchor (英文)
     ├── style.md                     ← Prompt 前缀 + 调色板
@@ -44,7 +44,7 @@ series-output/<slug>/
 
 ### Step 1 — 系列定位收集
 
-只在缺信息时问。需收集（参见 spec §4.3）:
+只在缺信息时问。需收集（参见 references/bible-templates.md）:
 - 系列 slug（kebab-case，用于目录名）
 - 系列中文/英文标题
 - 目标年龄段（0-2/2-4/4-6/6-8）
@@ -55,7 +55,7 @@ series-output/<slug>/
 - 教育目标列表（可空）
 - 禁忌清单（可空）
 
-写出 `series-output/<slug>/bible/series-meta.md`（schema 见 spec §4.3）。
+写出 `series-output/<slug>/bible/series-meta.md`（schema 见 references/bible-templates.md）。
 
 ### Step 2 — World Bible
 
@@ -134,7 +134,7 @@ series-output/<slug>/
 | `bible/world.md` | season-planner, volume-creator | 时空、地理、社会结构、风格关键词 |
 | `bible/characters.md` | volume-creator (生图+有声), season-planner (角色清单) | `prompt_anchor` (英文，原样复制), `voice_profile` |
 | `bible/style.md` | volume-creator | `style_prompt`, `negative_prompt`, `color_palette` |
-| `bible/portraits/<n>.png` + `.meta.json` | volume-creator (视觉参考) | `anchor_hash` 用于检测 anchor 漂移 |
+| `bible/portraits/<角色名>.png` + `.meta.json` | volume-creator (视觉参考) | `anchor_hash` 用于检测 anchor 漂移 |
 
 ## Common Mistakes
 

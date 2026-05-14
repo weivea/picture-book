@@ -16,7 +16,7 @@ export interface SeriesMeta {
 }
 
 const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/;
-const REQUIRED = ["slug", "title", "age_range", "language", "genre", "series_scale", "typical_pages_per_volume", "created_at"] as const;
+const SCALAR_REQUIRED = ["slug", "title", "age_range", "language", "genre", "series_scale", "typical_pages_per_volume", "created_at"] as const;
 
 export function parseSeriesMeta(text: string): SeriesMeta {
   const m = text.match(FRONTMATTER_RE);
@@ -24,12 +24,24 @@ export function parseSeriesMeta(text: string): SeriesMeta {
   const yaml = parseSimpleYaml(m[1]!);
   const body = m[2] ?? "";
 
-  for (const k of REQUIRED) {
-    if (!(k in yaml)) throw new Error(`series-meta missing required field: ${k}`);
+  for (const k of SCALAR_REQUIRED) {
+    const v = yaml[k];
+    if (v === undefined) {
+      throw new Error(`series-meta missing required field: ${k}`);
+    }
+    if (typeof v !== "string" || v.trim() === "") {
+      throw new Error(`series-meta required field "${k}" is empty or malformed`);
+    }
   }
   const scale = yaml.series_scale;
   if (scale !== "short" && scale !== "medium" && scale !== "long") {
     throw new Error(`series-meta invalid series_scale "${scale}" (allowed: short|medium|long)`);
+  }
+
+  const pagesRaw = yaml.typical_pages_per_volume;
+  const pages = typeof pagesRaw === "string" ? Number(pagesRaw.trim()) : NaN;
+  if (!Number.isInteger(pages) || pages <= 0) {
+    throw new Error(`series-meta typical_pages_per_volume must be a positive integer, got "${pagesRaw}"`);
   }
 
   return {
@@ -40,7 +52,7 @@ export function parseSeriesMeta(text: string): SeriesMeta {
     language: String(yaml.language),
     genre: String(yaml.genre),
     series_scale: scale,
-    typical_pages_per_volume: parseInt(String(yaml.typical_pages_per_volume), 10),
+    typical_pages_per_volume: pages,
     education_goals: Array.isArray(yaml.education_goals) ? yaml.education_goals.map(String) : [],
     taboos: Array.isArray(yaml.taboos) ? yaml.taboos.map(String) : [],
     created_at: String(yaml.created_at),

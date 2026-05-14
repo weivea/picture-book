@@ -100,7 +100,7 @@ count: <角色总数>
 - lie: <角色相信的、阻碍 need 的谎言>
 - appearance: <详细外观叙述（中文），含物种 / 体型 / 服装 / 标志性特征>
 - prompt_anchor: <英文一段话，长期不变，用于每页生图。例：A small white bear cub, round body, head-to-body 1:1.5, dark beady eyes, pink nose, wearing a cream linen apron with a tiny bear-paw embroidery on the chest pocket.>
-- voice_profile: <edge-tts voice 名，例如 zh-CN-YunxiaNeural；可选 rate/pitch>
+- voice_profile: <edge-tts voice 名 [rate=±N%] [pitch=±N%]，例如 zh-CN-YunxiaNeural rate=+0% pitch=+5%>
 - negative: <绝不出现的特征，英文。例：no sharp teeth, no modern clothing, no human hands>
 
 ## <下一个角色名>
@@ -112,7 +112,7 @@ count: <角色总数>
 - lie: <…>
 - appearance: <…>
 - prompt_anchor: <English anchor sentence>
-- voice_profile: <edge-tts voice>
+- voice_profile: <edge-tts voice 名 [rate=±N%] [pitch=±N%]，例如 zh-CN-YunxiaNeural rate=+0% pitch=+5%>
 - negative: <…>
 ```
 

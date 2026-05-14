@@ -1,27 +1,9 @@
 import { describe, test, expect } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { parseSeriesMeta } from "./series-meta-parse";
 
-const SAMPLE = `---
-slug: xiaoxiong-mianbaofang
-title: 小熊面包房的故事
-title_en: The Bear's Bakery
-age_range: 4-6
-language: zh
-genre: 治愈 / 日常生活
-series_scale: medium
-typical_pages_per_volume: 12
-education_goals:
-  - 学会等待
-  - 认识团队合作
-taboos:
-  - 不出现现实人类
-created_at: 2026-05-14T08:30:00Z
----
-
-# 系列概述
-
-一段散文形式的整体介绍。
-`;
+const SAMPLE = readFileSync(join(import.meta.dir, "test/fixtures/series-meta.md"), "utf-8");
 
 describe("parseSeriesMeta", () => {
   test("parses scalar fields", () => {
@@ -58,5 +40,15 @@ describe("parseSeriesMeta", () => {
 
   test("rejects missing frontmatter", () => {
     expect(() => parseSeriesMeta("# just markdown\n")).toThrow(/frontmatter/);
+  });
+
+  test("rejects non-integer typical_pages_per_volume", () => {
+    const bad = SAMPLE.replace("typical_pages_per_volume: 12", "typical_pages_per_volume: twelve");
+    expect(() => parseSeriesMeta(bad)).toThrow(/typical_pages_per_volume/);
+  });
+
+  test("rejects empty required scalar (e.g. blank slug)", () => {
+    const bad = SAMPLE.replace("slug: xiaoxiong-mianbaofang", "slug: ");
+    expect(() => parseSeriesMeta(bad)).toThrow(/slug/);
   });
 });
