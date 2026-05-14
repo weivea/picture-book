@@ -105,3 +105,78 @@ brew install epubcheck
 - ✅ Apple Books（iOS / macOS）：完整支持朗读 + 高亮 + 翻页
 - ✅ Thorium Reader（跨平台）：完整支持
 - ⚠️ Kindle / 微信读书：不支持 Media Overlays，仅作为静态 EPUB 显示
+
+## 连载绘本（多册系列）
+
+把单本工作流升级为**多册同一世界**的连载绘本系列。每册独立可读，全系列共享世界观、角色和画风。
+
+### 三层结构
+
+```
+建系列（一次）
+  └─ Series Bible: world.md / characters.md / style.md / portraits/
+     └─ 规划本季弧线（每季一次）
+        └─ Season Arc + volumes-outline
+           └─ 生成单册（每册一次,可隔天/隔周/隔月）
+              └─ script + 图 + 静态 EPUB + 自动有声 EPUB
+              └─ 出合订本（按需）
+                 └─ omnibus EPUB
+```
+
+### 4 个 skill
+
+| Skill | 触发关键词 | 何时用 |
+|---|---|---|
+| `series-bible-creator` | "建一个绘本系列"、"create series" | 一个系列只跑一次 |
+| `series-season-planner` | "规划第 N 季"、"plan season 2" | 每季跑一次 |
+| `series-volume-creator` | "做下一册"、"build volume 3" | 每册跑一次 |
+| `series-omnibus-packager` | "出第一季合订本"、"merge volumes" | 按需 |
+
+### 输出目录
+
+```
+series-output/<series-slug>/
+├── state.json                      ← 跨会话进度
+├── bible/                          ← 冻结资产
+│   ├── series-meta.md
+│   ├── world.md
+│   ├── characters.md               ← 含 voice_profile + prompt_anchor
+│   ├── style.md
+│   └── portraits/
+├── seasons/<id>/
+│   ├── season-arc.md
+│   └── volumes-outline.md
+├── volumes/<id>/
+│   ├── script.md
+│   ├── 0.png ~ N.png               ← 1024×1024
+│   ├── <册名>.epub
+│   └── <册名>-audio.epub
+└── omnibus/<series>-<range>.epub
+```
+
+`series-output/` 已被 .gitignore，不会进仓库。
+
+### 跨册一致性
+
+- **角色**：Bible 里的 `prompt_anchor`（英文短语）每册原样复制；可加 per-volume 补丁但 Bible 锚定永远在前
+- **画风**：Bible 的 `style.md` 提供全系列 prompt 前缀
+- **声音**：Bible 角色卡里的 `voice_profile` 全系列锁定，第一册定声后永不更换
+
+### 跨会话恢复
+
+每次启动任一 series-* skill，都会先读 `state.json` 报告进度（已冻结的 bible 版本、已锁的 season、各册 phase 计数），用户可从中断处继续。
+
+### 手动调用合订脚本
+
+```bash
+bun run epub-omnibus -- \
+  --series-root series-output/<slug> \
+  --volumes "s1v1,s1v2,s1v3" \
+  --title "第一季合集" \
+  --lang zh
+```
+
+### 设计与实现文档
+
+- 设计 spec: `docs/superpowers/specs/2026-05-14-serial-picture-book-design.md`
+- 实施 plan: `docs/superpowers/plans/2026-05-14-serial-picture-book.md`

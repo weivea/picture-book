@@ -9,9 +9,11 @@
     "setup:venv": "python3 -m venv .venv && .venv/bin/pip install --upgrade pip && .venv/bin/pip install -r requirements.txt",
     "image": "bun run .claude/skills/image-generation/scripts/generate-image.ts",
     "epub": "bun run .claude/skills/picture-book-creator/scripts/generate-epub.ts",
+    "epub-omnibus": "bun run .claude/skills/picture-book-creator/scripts/generate-epub.ts --omnibus",
     "audio": "bun run .claude/skills/text-to-speech/scripts/generate-audio.ts",
     "audio-epub": "bun run .claude/skills/audio-picture-book-creator/scripts/generate-audio-epub.ts",
-    "test": "bun test ./.claude/skills/"
+    "test": "bun test ./.claude/skills/",
+    "series-test": "bun test ./.claude/skills/series-bible-creator/ ./.claude/skills/series-season-planner/ ./.claude/skills/series-volume-creator/ ./.claude/skills/series-omnibus-packager/ ./.claude/skills/picture-book-creator/scripts/generate-epub.omnibus.test.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
