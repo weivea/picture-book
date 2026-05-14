@@ -150,6 +150,11 @@ await Promise.all(
     const existingRefs = refPaths.filter((p) => existsSync(p));
     const sceneIdx = String(scene.index + 1).padStart(2, "0");
     const out = join(illustrationsDir, `scene_${sceneIdx}.png`);
+    // 幂等：已存在则跳过（手动重试时避免重复消耗 API 配额）
+    if (existsSync(out)) {
+      console.log(`↺ scene ${sceneIdx}: ${scene.title} 已存在，跳过`);
+      return;
+    }
     const args = [
       "--prompt", prompt,
       "--output", out,

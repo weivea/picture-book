@@ -5,6 +5,7 @@ import { parseArgs } from "node:util";
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { parseScenes } from "../../novel-chapter-workshop/scripts/lib/scene-marker-parser";
 import { splitToSentences, type Sentence } from "./lib/chapter-splitter";
 import { resolveVoice, type CharacterVoice } from "./lib/voice-resolver";
@@ -184,6 +185,42 @@ ${pars}
 </smil>`;
 }
 
+function buildNavXhtml(args: {
+  title: string;
+  language: string;
+  chapters: Array<{ idPadded: string; title: string }>;
+}): string {
+  const lis = args.chapters
+    .map(
+      (c) =>
+        `      <li><a href="chapters/ch_${c.idPadded}.xhtml">${c.title.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</a></li>`,
+    )
+    .join("\n");
+  return `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="${args.language}" lang="${args.language}">
+<head>
+  <meta charset="utf-8"/>
+  <title>${args.title.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</title>
+</head>
+<body>
+  <nav epub:type="toc" id="toc">
+    <h1>目录</h1>
+    <ol>
+${lis}
+    </ol>
+  </nav>
+</body>
+</html>`;
+}
+
+// 用 sha1(项目名) 派生稳定的 UUID v5-like 字符串（不依赖外部库）。
+// dc:identifier 必须是合法 URN；之前用中文 "出租车一家自驾游" 会让阅读器降级。
+function deriveStableUuid(seed: string): string {
+  const h = createHash("sha1").update(seed).digest("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
 function buildNovelOpf(args: {
   uid: string;
   title: string;
@@ -235,11 +272,12 @@ async function runEpub(): Promise<void> {
   const manifest: ManifestItem[] = [];
   const spine: string[] = [];
   const durations: Array<{ smilId: string; durMs: number }> = [];
+  const chapterTitles: Array<{ idPadded: string; title: string }> = [];
 
   // CSS
   extra.push({
     path: "styles/novel.css",
-    data: "body{font-family:serif;line-height:1.7;} figure{margin:1em 0;text-align:center;} img{max-width:100%;}",
+    data: "body{font-family:serif;line-height:1.7;} figure{margin:1em 0;text-align:center;} img{max-width:100%;} .-epub-media-overlay-active{background:#ffe98a;}",
   });
   manifest.push({ id: "css", href: "styles/novel.css", mediaType: "text/css" });
 
@@ -249,6 +287,7 @@ async function runEpub(): Promise<void> {
     const md = await readFile(join(chaptersDir, file), "utf8");
     const title =
       md.match(/^title:\s*"?([^"\n]+)"?/m)?.[1] ?? `Chapter ${chN}`;
+    chapterTitles.push({ idPadded: padded, title });
     const scenes = parseScenes(md);
 
     // 用统一规则切句（与 timing.json 保持同序），但 idx 重新全局连续编号。
@@ -321,8 +360,23 @@ async function runEpub(): Promise<void> {
     durations.push({ smilId, durMs: totalMs });
   }
 
+  // nav.xhtml — EPUB3 必需。没有它，多数阅读器（含 Thorium / Apple Books）
+  // 会把书当成 EPUB2-ish reflowable，不暴露 Media Overlay 的播放控件。
+  const navXhtml = buildNavXhtml({
+    title: proj,
+    language: "zh-CN",
+    chapters: chapterTitles,
+  });
+  extra.push({ path: "nav.xhtml", data: navXhtml });
+  manifest.unshift({
+    id: "nav",
+    href: "nav.xhtml",
+    mediaType: "application/xhtml+xml",
+    properties: "nav",
+  });
+
   const opfXml = buildNovelOpf({
-    uid: proj,
+    uid: deriveStableUuid(proj),
     title: proj,
     language: "zh-CN",
     manifest,
