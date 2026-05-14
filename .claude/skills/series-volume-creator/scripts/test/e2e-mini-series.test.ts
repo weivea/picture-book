@@ -109,3 +109,32 @@ describe("end-to-end mini-series volume creation", () => {
     expect(r.warnings).toContain("omnibus of a single volume — output will be a copy of that volume");
   });
 });
+
+describe("orchestrateVolume input validation", () => {
+  const baseOpts = {
+    seriesRoot: "/nonexistent",
+    volumeId: "s1v1",
+    title: "X",
+    generateImage: async () => { throw new Error("should not be called"); },
+  };
+
+  test("rejects empty pages array", async () => {
+    await expect(orchestrateVolume({ ...baseOpts, pages: [] }))
+      .rejects.toThrow(/at least one page/i);
+  });
+
+  test("rejects empty title", async () => {
+    await expect(orchestrateVolume({
+      ...baseOpts, title: "  ",
+      pages: [{ pageNumber: 0, text: "x", scene: "x", action: "x", emotion: "x", composition: "x", characters: [] }],
+    })).rejects.toThrow(/non-empty title/i);
+  });
+
+  test("rejects duplicate page numbers", async () => {
+    const page = { pageNumber: 1, text: "x", scene: "x", action: "x", emotion: "x", composition: "x", characters: [] };
+    await expect(orchestrateVolume({
+      ...baseOpts,
+      pages: [page, { ...page }],
+    })).rejects.toThrow(/duplicate page.*1/i);
+  });
+});

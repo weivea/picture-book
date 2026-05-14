@@ -1,5 +1,5 @@
 import { mkdir, writeFile, readFile } from "fs/promises";
-import { join } from "path";
+import { basename, join } from "path";
 import { spawnSync } from "child_process";
 import { loadVolumeContext } from "./load-context";
 import { composePagePrompt, type PageInput } from "./compose-prompt";
@@ -19,6 +19,19 @@ export interface OrchestrateOptions {
 }
 
 export async function orchestrateVolume(opts: OrchestrateOptions): Promise<{ phase: string; epubPath: string }> {
+  if (opts.pages.length === 0) throw new Error("orchestrateVolume requires at least one page");
+  if (!opts.title.trim()) throw new Error("orchestrateVolume requires a non-empty title");
+  const seenPages = new Set<number>();
+  for (const p of opts.pages) {
+    if (!Number.isInteger(p.pageNumber) || p.pageNumber < 0) {
+      throw new Error(`page.pageNumber must be a non-negative integer, got ${p.pageNumber}`);
+    }
+    if (seenPages.has(p.pageNumber)) {
+      throw new Error(`duplicate page.pageNumber ${p.pageNumber}`);
+    }
+    seenPages.add(p.pageNumber);
+  }
+
   const ctx = await loadVolumeContext(opts.seriesRoot, opts.volumeId);
   const volumeDir = join(opts.seriesRoot, "volumes", opts.volumeId);
   await mkdir(join(volumeDir, "prompts"), { recursive: true });
@@ -57,7 +70,7 @@ export async function orchestrateVolume(opts: OrchestrateOptions): Promise<{ pha
     pages: totalPages,
     built_at: new Date().toISOString(),
     outputs: {
-      epub: epubPath.split("/").pop()!,
+      epub: basename(epubPath),
     },
   };
   await writeFile(join(volumeDir, "meta.json"), JSON.stringify(meta, null, 2) + "\n", "utf-8");
@@ -85,7 +98,7 @@ export async function orchestrateVolume(opts: OrchestrateOptions): Promise<{ pha
 }
 
 async function defaultBuildEpub(volumeDir: string, title: string, lang: string): Promise<string> {
-  const script = ".claude/skills/picture-book-creator/scripts/generate-epub.ts";
+  const script = join(import.meta.dir, "..", "..", "picture-book-creator", "scripts", "generate-epub.ts");
   const r = spawnSync("bun", ["run", script, "--input", volumeDir, "--title", title, "--lang", lang], {
     encoding: "utf-8", stdio: ["ignore", "inherit", "inherit"],
   });
