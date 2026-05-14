@@ -1,0 +1,10 @@
+{
+  "volume_id": "s1v1",
+  "season": "s1",
+  "title": "First Volume",
+  "pages": 3,
+  "built_at": "2026-05-14T09:00:00Z",
+  "outputs": {
+    "epub": "First Volume.epub"
+  }
+}

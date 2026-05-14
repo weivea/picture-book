@@ -1,0 +1,10 @@
+{
+  "volume_id": "s1v2",
+  "season": "s1",
+  "title": "Second Volume",
+  "pages": 3,
+  "built_at": "2026-05-14T09:30:00Z",
+  "outputs": {
+    "epub": "Second Volume.epub"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "series_slug": "demo",
+  "title": "Demo Series",
+  "created_at": "2026-05-14T08:00:00Z",
+  "bible": {
+    "version": 1,
+    "frozen_at": "2026-05-14T08:00:00Z"
+  },
+  "seasons": {
+    "s1": {
+      "title": "Season 1",
+      "volumes_planned": 2,
+      "arc_locked": true,
+      "started_at": "2026-05-14T08:00:00Z",
+      "outline_revision": 1
+    }
+  },
+  "volumes": {
+    "s1v1": {
+      "season": "s1",
+      "phase": "packaged",
+      "pages": 3,
+      "built_at": "2026-05-14T09:00:00Z"
+    },
+    "s1v2": {
+      "season": "s1",
+      "phase": "packaged",
+      "pages": 3,
+      "built_at": "2026-05-14T09:30:00Z"
+    }
+  },
+  "omnibus": []
+}
