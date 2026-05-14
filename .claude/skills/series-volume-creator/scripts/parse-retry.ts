@@ -1,7 +1,7 @@
 /**
  * Parse a free-text retry instruction into a sorted, deduplicated list of
  * page indices. `totalPages` is the page count of the volume (cover counts
- * as page 0, so valid range is [0, totalPages]).
+ * as page 0, so valid range is [0, totalPages - 1]).
  *
  * Accepts mixed Chinese/English punctuation and ranges:
  *   "重试 5、9 页"     → [5, 9]
@@ -9,7 +9,7 @@
  *   "重试 3 至 6 页"   → [3, 4, 5, 6]
  *   "redo pages 1, 4-5"→ [1, 4, 5]
  *
- * Throws if no numbers are found, or any number/range is outside [0, totalPages].
+ * Throws if no numbers are found, or any number/range is outside [0, totalPages - 1].
  */
 export function parseRetrySpec(input: string, totalPages: number): number[] {
   // Normalize: replace Chinese commas with ASCII; replace 至 with -.
@@ -48,7 +48,7 @@ export function parseRetrySpec(input: string, totalPages: number): number[] {
 }
 
 function assertInRange(n: number, totalPages: number): void {
-  if (n < 0 || n > totalPages) {
-    throw new Error(`page ${n} out of range [0, ${totalPages}]`);
+  if (n < 0 || n >= totalPages) {
+    throw new Error(`page ${n} out of range [0, ${totalPages - 1}]`);
   }
 }

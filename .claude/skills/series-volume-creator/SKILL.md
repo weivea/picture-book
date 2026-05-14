@@ -108,7 +108,6 @@ state 登记：调 `updateState` → `volumes[vid] = { season, phase: "drafting"
 bun run .claude/skills/picture-book-creator/scripts/generate-epub.ts \
   --input series-output/<slug>/volumes/<vid> \
   --title "<册名>" \
-  --author "<series-meta.author 或默认>" \
   --lang <series-meta.language>
 ```
 
@@ -118,8 +117,9 @@ PDF 暂走与单本相同流程（如有）。
 ### Step 8 — 自动衔接有声 EPUB
 
 调用 `audio-picture-book-creator` skill。给它的输入：
+- `topic-dir`：`series-output/<slug>/volumes/<vid>/`（显式覆盖，跳过 audio skill 自己的目录列举）
 - 静态 EPUB 路径
-- voice_profile 来自 `bible/characters.md` 的主角字段（不询问用户）
+- voice_profile：来自 `bible/characters.md` 的主角字段，传给 audio skill 的 Phase B 作为预设（不询问用户）
 
 成功 → state 登记 `audio: true, built_at: <now>`。
 失败 → state 登记 `audio: false`，输出"Step 8 失败但 packaged 已完成,可手动重试"，**不**让 Step 7 的成果回滚。

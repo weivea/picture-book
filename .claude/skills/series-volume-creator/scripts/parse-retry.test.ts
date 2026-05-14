@@ -38,6 +38,14 @@ describe("parseRetrySpec", () => {
     expect(() => parseRetrySpec("重试 15 页", 12)).toThrow(/15/);
   });
 
+  test("throws when a page equals totalPages (last valid page is totalPages-1)", () => {
+    expect(() => parseRetrySpec("重试 12 页", 12)).toThrow(/12/);
+  });
+
+  test("accepts the last valid page (totalPages - 1)", () => {
+    expect(parseRetrySpec("重试 11 页", 12)).toEqual([11]);
+  });
+
   test("throws when a range exceeds total", () => {
     expect(() => parseRetrySpec("重试 10-20 页", 12)).toThrow();
   });

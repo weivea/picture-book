@@ -1,7 +1,7 @@
 ---
 name: audio-picture-book-creator
 description: |
-  把已有的静态绘本 output/<topic>/ 升级为有声绘本 EPUB3
+  把已有的静态绘本目录（output/<topic>/ 或 series-output/<slug>/volumes/<vid>/）升级为有声绘本 EPUB3
   （带 Media Overlays，朗读时自动高亮文字、翻页）。
   当用户说"加声音 / 给绘本配音 / 做有声版 / 朗读 / read-aloud /
   audio book / 有声书"时使用此 skill。
@@ -10,7 +10,7 @@ description: |
 
 # Audio Picture Book Creator
 
-把 `output/<topic>/` 中的静态绘本（图 + script.md）升级为带朗读高亮的 EPUB3 Media Overlays 电子书。
+把指定 topic 目录（`output/<topic>/` 或 `series-output/<slug>/volumes/<vid>/`）中的静态绘本（图 + script.md）升级为带朗读高亮的 EPUB3 Media Overlays 电子书。
 
 ## 核心原则
 
@@ -20,9 +20,11 @@ description: |
 
 ## 阶段 A：定位与清单
 
-1. 列出 `output/` 下所有可补声的目录（含 `script.md` + 至少 1 张 `<n>.png`）
-2. 用户选定 `<topic>`（若初始 prompt 已包含名字则跳过）
-3. 解析 `script.md`，提取每页的 `text` 字段，生成 manifest（页号 → 朗读文本）
+1. **定位 topic 目录**：
+   - 默认：列出 `output/` 下所有可补声的目录（含 `script.md` + 至少 1 张 `<n>.png`），让用户选定 `<topic>`，最终目录为 `output/<topic>/`
+   - 显式覆盖：调用方（如 series-volume-creator）可直接传入 `topic-dir=<绝对或相对路径>`（例如 `series-output/<slug>/volumes/<vid>/`），跳过列举与选择
+2. 用户选定 topic 目录（若初始 prompt 已包含路径或名字则跳过）
+3. 解析 `<topic-dir>/script.md`，提取每页的 `text` 字段，生成 manifest（页号 → 朗读文本）
 4. 封面页（page 0）默认朗读 `text` 字段（即书名）；若 `text` 为空字符串则跳过封面音频
 
 ## 阶段 B：声音参数确认
@@ -47,7 +49,7 @@ description: |
 
 并发限制：每批 4 页，与图像生成节奏一致。
 
-输出：`output/<topic>/audio/{0..N}.mp3` + `{0..N}.json`
+输出：`<topic-dir>/audio/{0..N}.mp3` + `{0..N}.json`
 
 验证：每页 mp3 > 5KB 且 json 存在；失败页报告并提供重试 / 跳过 / 中止选项。
 
@@ -57,14 +59,14 @@ description: |
 
 ```bash
 bun run .claude/skills/audio-picture-book-creator/scripts/generate-audio-epub.ts \
-  --topic-dir output/<topic> \
+  --topic-dir <topic-dir> \
   --title "<书名>" \
   --author "<作者>" \
   --lang zh \
   --voice zh-CN-XiaoyiNeural
 ```
 
-输出：`output/<topic>/<书名>-audio.epub`（与原 `<书名>.epub` 同级并存）
+输出：`<topic-dir>/<书名>-audio.epub`（与原 `<书名>.epub` 同级并存）
 
 ## 阶段间流转
 
