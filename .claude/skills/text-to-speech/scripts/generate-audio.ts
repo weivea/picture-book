@@ -8,7 +8,7 @@
  *     [--voice zh-CN-XiaoyiNeural] [--rate -10%] [--volume +0%] [--pitch +0Hz]
  *
  * 行为：
- *   - 启动 <repo>/.venv/bin/python edge_tts_helper.py 子进程
+ *   - 启动 <repo>/.venv/bin/python azure_tts_helper.py 子进程
  *   - 文本经 stdin 喂入 helper
  *   - helper stdout (mp3 二进制) → 写到 <output>
  *   - helper stderr (NDJSON WordBoundary 事件) → 收集后转换为 words[]
@@ -52,9 +52,9 @@ const outputPath = resolve(values.output);
 const python = findVenvPython();
 if (!python) {
   console.error(
-    "edge-tts 未安装。请在项目根运行：\n" +
+    "azure-cognitiveservices-speech 未安装。请在项目根运行：\n" +
       "  python3 -m venv .venv\n" +
-      "  .venv/bin/pip install edge-tts"
+      "  .venv/bin/pip install -r requirements.txt"
   );
   process.exit(1);
 }
@@ -76,10 +76,10 @@ if (text.trim() === "") {
 // 3. 启动 Python 子进程
 const helperPath = join(
   dirname(new URL(import.meta.url).pathname),
-  "edge_tts_helper.py"
+  "azure_tts_helper.py"
 );
 if (!existsSync(helperPath)) {
-  console.error(`edge_tts_helper.py 缺失: ${helperPath}`);
+  console.error(`azure_tts_helper.py 缺失: ${helperPath}`);
   process.exit(1);
 }
 

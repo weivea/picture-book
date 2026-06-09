@@ -81,7 +81,7 @@ bun run .claude/skills/novel-foundation-builder/scripts/init-foundation.ts \
 
 脚本会：
 1. 校验 5 个 .md 是否符合 schema（schemas.ts）
-2. 读取 characters.md，为每个角色调用 voice-assigner 自动分配 edge-tts voice
+2. 读取 characters.md，为每个角色调用 voice-assigner 自动分配 Azure Speech voice
 3. 写回 characters.md（填充 voice_profile）
 4. 写 state.json（含 phase=foundation_done、debt 列表为空）
 

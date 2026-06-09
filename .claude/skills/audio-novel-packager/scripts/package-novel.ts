@@ -53,7 +53,7 @@ const charactersMd = await readFile(join(outputDir, "characters.md"), "utf8");
 const charBlocks = charactersMd.replace(/\r\n/g, "\n").split(/^## /m).slice(1);
 const characters: CharacterVoice[] = charBlocks.map((b) => {
   const name = b.split("\n")[0].trim();
-  const voice = b.match(/voice_profile:\s*([\w-]+)/)?.[1] ?? "zh-CN-YunyangNeural";
+  const voice = b.match(/voice_profile:\s*([\w:-]+)/)?.[1] ?? "zh-CN-YunyangNeural";
   return { name, voice };
 });
 const NARRATOR_VOICE =

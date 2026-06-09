@@ -1,6 +1,6 @@
 # Voice Mapping Rules
 
-定义如何把"说话人名字"解析成实际的 edge-tts voice id。绝大多数情况下读 characters.md 的 voice_profile 就够；本文档处理几个特例。
+定义如何把"说话人名字"解析成实际的 Azure Speech voice id。绝大多数情况下读 characters.md 的 voice_profile 就够；本文档处理几个特例。
 
 ## 解析顺序
 

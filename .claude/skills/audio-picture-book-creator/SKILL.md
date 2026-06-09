@@ -34,6 +34,8 @@ description: |
 - `zh-CN-XiaoxiaoNeural` 晓晓（成年女声，故事感强）
 - `zh-CN-YunxiNeural` 云希（成年男声，温暖）
 
+> 经 Azure Speech 合成（需 `.env` 配 `AZURE_SPEECH_KEY` / `AZURE_SPEECH_ENDPOINT`）。如需更高音质可选 DragonHD：`zh-CN-Xiaochen:DragonHDLatestNeural`（女）/ `zh-CN-Yunfan:DragonHDLatestNeural`（男）。
+
 询问用户是否调整；若初始 prompt 已指定则跳过。
 
 ## 阶段 C：并行生成音频

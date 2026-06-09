@@ -91,10 +91,13 @@ bun run epub -- --dir output/<book-slug>
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install edge-tts
+.venv/bin/pip install -r requirements.txt
 # 可选：装 epubcheck 做结构校验
 brew install epubcheck
 ```
+
+> 朗读由 Azure Speech（`azure-cognitiveservices-speech`）合成，需在 `.env` 配置
+> `AZURE_SPEECH_KEY` 与 `AZURE_SPEECH_ENDPOINT`（参考 `.env.example`）。
 
 ### 使用
 
@@ -132,15 +135,15 @@ brew install epubcheck
 | `scene-illustrator` | 角色立绘 + 场景插图（image-to-image 锚定） |
 | `audio-novel-packager` | 多 voice TTS + Reflowable EPUB3 + Media Overlays |
 | `image-generation`（已扩展 `--ref`） | 通用出图，Azure gpt-image-2 /generations + /edits |
-| `text-to-speech` | 通用 TTS，edge-tts |
+| `text-to-speech` | 通用 TTS，Azure Speech |
 
 ### 一次性 setup
 
-除了绘本流程已要求的 Bun + Azure key，本流水线还需要 `edge-tts`（Python）做朗读：
+除了绘本流程已要求的 Bun + Azure key，本流水线还需要 Azure Speech（Python）做朗读：
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install edge-tts
+.venv/bin/pip install -r requirements.txt
 # 可选：装 epubcheck 做结构校验
 brew install epubcheck
 ```
